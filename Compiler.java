@@ -21,7 +21,14 @@ public class Compiler {
 				}
 				Scanner scanner = new Scanner(reader);
 				Parser parser = new Parser(scanner);
-				parser.parse();
+				try{
+					parser.parse();
+				} catch(SyntaxException e){
+					System.out.println("Parse failed.  " + args[0] + " is not a valid miniJava program.");
+					System.exit(parseFail);
+				}
+				System.out.println("Parse was successful.  " + args[0] + " is a valid miniJava program.");
+				System.exit(parseSuccess);
 			}
 			else{
 				System.out.println("Source file must be of type .java or .mjava.");

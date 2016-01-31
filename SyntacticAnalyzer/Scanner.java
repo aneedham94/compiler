@@ -1,16 +1,14 @@
 package miniJava.SyntacticAnalyzer;
 
 import java.io.BufferedReader;
-import java.io.File;
 
 public class Scanner {
 	private BufferedReader reader;
 	public Scanner(BufferedReader reader){
-		
+		this.reader = reader;
 	}
 	
 	public Token scan(){
-		//scan using file
 		return null;
 	}
 }
