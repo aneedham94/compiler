@@ -1,6 +1,6 @@
 package miniJava.SyntacticAnalyzer;
 
-import miniJava.SyntaxException;
+import java.io.IOException;
 
 public class Parser {
 	private Scanner scanner;
@@ -10,22 +10,19 @@ public class Parser {
 		this.scanner = scanner;
 	}
 	
-	//GTG
-	public void parse() throws SyntaxException{
+	public void parse() throws SyntaxException, IOException{
 		token = scanner.scan();
 		parseProgram();
 	}
 	
-	//GTG
-	private void parseProgram() throws SyntaxException{
+	private void parseProgram() throws SyntaxException, IOException{
 		while(token.type != TokenType.EOT){
 			parseClassDeclaration();
 		}
 		accept(TokenType.EOT);
 	}
 	
-	//GTG
-	private void parseClassDeclaration() throws SyntaxException{
+	private void parseClassDeclaration() throws SyntaxException, IOException{
 		accept(TokenType.CLASS);
 		accept(TokenType.ID);
 		accept(TokenType.LCURL);
@@ -47,8 +44,7 @@ public class Parser {
 		accept(TokenType.RCURL);
 	}
 	
-	//GTG
-	private void parseMethodDeclaration() throws SyntaxException{
+	private void parseMethodDeclaration() throws SyntaxException, IOException{
 		accept(TokenType.LPAREN);
 		if(token.type != TokenType.RPAREN){
 			parseParameterList();
@@ -61,8 +57,7 @@ public class Parser {
 		accept(TokenType.RCURL);
 	}
 	
-	//GTG
-	private void parseVisibility(){
+	private void parseVisibility() throws IOException{
 		switch(token.type){
 		case PUBLIC:
 			acceptIt();
@@ -75,8 +70,7 @@ public class Parser {
 		}
 	}
 	
-	//GTG
-	private void parseAccess(){
+	private void parseAccess() throws IOException{
 		switch(token.type){
 		case STATIC:
 			acceptIt();
@@ -86,8 +80,7 @@ public class Parser {
 		}
 	}
 	
-	//GTG
-	private void parseType() throws SyntaxException{
+	private void parseType() throws SyntaxException, IOException{
 		switch(token.type){
 		case INT:
 			acceptIt();
@@ -112,8 +105,7 @@ public class Parser {
 		}
 	}
 	
-	//GTG
-	private void parseParameterList() throws SyntaxException{
+	private void parseParameterList() throws SyntaxException, IOException{
 		parseType();
 		accept(TokenType.ID);
 		while(token.type == TokenType.COMMA){
@@ -123,8 +115,7 @@ public class Parser {
 		}
 	}
 	
-	//GTG
-	private void parseArgumentList() throws SyntaxException{
+	private void parseArgumentList() throws SyntaxException, IOException{
 		parseExpression();
 		while(token.type == TokenType.COMMA){
 			acceptIt();
@@ -132,8 +123,7 @@ public class Parser {
 		}
 	}
 	
-	//GTG
-	private void parseReference() throws SyntaxException{
+	private void parseReference() throws SyntaxException, IOException{
 		switch(token.type){
 		case THIS:
 			acceptIt();
@@ -151,15 +141,14 @@ public class Parser {
 		}
 	}
 	
-	private void parseArrayReference() throws SyntaxException{
+	private void parseArrayReference() throws SyntaxException, IOException{
 		accept(TokenType.ID);
 		accept(TokenType.LBRACK);
 		parseExpression();
 		accept(TokenType.RBRACK);
 	}
 	
-	//GTG
-	private void parseStatement() throws SyntaxException{
+	private void parseStatement() throws SyntaxException, IOException{
 		switch(token.type){
 		case LCURL:
 			acceptIt();
@@ -255,6 +244,12 @@ public class Parser {
 				parseExpression();
 				accept(TokenType.SEMI);
 			}
+			else if(token.type == TokenType.DOT){
+				while(token.type == TokenType.DOT){
+					acceptIt();
+					accept(TokenType.ID);
+				}
+			}
 			else parseException("Expecting token of types EQ, LPAREN, ID or LBRACK but got token of type " + token.type + ".");
 			break;
 		default:
@@ -263,8 +258,7 @@ public class Parser {
 		}
 	}
 	
-	//GTG
-	private void parseExpression() throws SyntaxException{
+	private void parseExpression() throws SyntaxException, IOException{
 		switch(token.type){
 		case THIS:
 			parseReference();
@@ -274,7 +268,7 @@ public class Parser {
 				accept(TokenType.RPAREN);
 			}
 			break;
-		case UNOP:
+		case NOT: case MINUS:
 			acceptIt();
 			parseExpression();
 			break;
@@ -338,15 +332,22 @@ public class Parser {
 			parseException("Expecting token of type THIS, UNOP, LPAREN, NUM, TRUE, FALSE, NEW, or ID but got token of type " + token.type + ".");
 			break;
 		}
+		if(token.type == TokenType.GT || token.type == TokenType.LT || token.type == TokenType.EQEQ || token.type == TokenType.LTE ||
+				token.type == TokenType.GTE || token.type == TokenType.NEQ || token.type == TokenType.AND || token.type == TokenType.OR ||
+				token.type == TokenType.PLUS || token.type == TokenType.MINUS || token.type == TokenType.TIMES || token.type == TokenType.DIV){
+			acceptIt();
+			parseExpression();
+		}
 	}
 	
-	private void acceptIt(){
+	private void acceptIt() throws IOException{
 		try{
 			accept(token.type);
 		} catch(SyntaxException e){}
 	}
 	
-	private void accept(TokenType type)throws SyntaxException{
+	private void accept(TokenType type)throws SyntaxException, IOException{
+		System.out.println("Trying to accept token of type " + token.type + " with spelling " + token.spelling);
 		if(token.type == type) token = scanner.scan();
 		else parseException("Expecting token of type " + type + " but got token of type " + token.type + ".");
 	}

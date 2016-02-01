@@ -1,8 +1,12 @@
 package miniJava;
-import miniJava.SyntacticAnalyzer.Scanner;
-import miniJava.SyntacticAnalyzer.Parser;
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
+
+import miniJava.SyntacticAnalyzer.Parser;
+import miniJava.SyntacticAnalyzer.Scanner;
+import miniJava.SyntacticAnalyzer.SyntaxException;
+
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 
@@ -16,15 +20,26 @@ public class Compiler {
 				try{
 					reader = new BufferedReader(new FileReader(new File(System.getProperty("user.dir") + System.getProperty("file.separator") + args[0])));
 				} catch(FileNotFoundException e){
-					System.out.println("Could not find file " + args[0] + "in current working directory.");
+					System.out.println("Could not find file " + args[0] + " in current working directory.");
 					System.exit(parseFail);
 				}
-				Scanner scanner = new Scanner(reader);
+				Scanner scanner = null;
+				try{
+					scanner = new Scanner(reader);
+				} catch(IOException e){
+					System.out.println("Failed to read the first character from source file while initializing scanner.  Aborting parse.");
+					System.exit(parseFail);
+				}
 				Parser parser = new Parser(scanner);
 				try{
 					parser.parse();
 				} catch(SyntaxException e){
 					System.out.println("Parse failed.  " + args[0] + " is not a valid miniJava program.");
+					System.out.println(e.getMessage());
+					System.exit(parseFail);
+				} catch(IOException e){
+					if(e.getMessage().length() == 1) System.out.println("Illegal token \'" + Scanner.visible(e.getMessage().charAt(0)) + "\'.  Aborting parse.");
+					else System.out.println("Scanning error.  Aborting parse.");
 					System.exit(parseFail);
 				}
 				System.out.println("Parse was successful.  " + args[0] + " is a valid miniJava program.");

@@ -1,4 +1,4 @@
-package miniJava;
+package miniJava.SyntacticAnalyzer;
 
 public class SyntaxException extends Exception {
 	private static final long serialVersionUID = 1L;
