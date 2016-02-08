@@ -171,6 +171,7 @@ public class Scanner {
 	
 	private void skipWhite() throws IOException{
 		while(current == ' ' || current == '\n' || current == '\r' || current == '\t'){
+			if(eot) break;
 			nextChar();
 		}
 	}
@@ -182,7 +183,9 @@ public class Scanner {
 	private void readChar() throws IOException{
 		int next = reader.read();
 		if(next != -1) current = (char)next;
-		else eot = true;
+		else{
+			eot = true;
+		}
 	}
 	
 	/**
