@@ -18,9 +18,9 @@ public class Compiler {
 			if(args[0].substring(args[0].length()-5, args[0].length()).equals(".java") || args[0].substring(args[0].length()-6, args[0].length()).equals(".mjava")){
 				BufferedReader reader = null;
 				try{
-					reader = new BufferedReader(new FileReader(new File(System.getProperty("user.dir") + System.getProperty("file.separator") + args[0])));
+					reader = new BufferedReader(new FileReader(new File(args[0])));
 				} catch(FileNotFoundException e){
-					System.out.println("Could not find file " + args[0] + " in current working directory.");
+					System.out.println("Could not find file " + args[0]);
 					System.exit(parseFail);
 				}
 				Scanner scanner = null;
@@ -40,6 +40,12 @@ public class Compiler {
 				} catch(IOException e){
 					if(e.getMessage().length() == 1) System.out.println("Illegal token \'" + Scanner.visible(e.getMessage().charAt(0)) + "\'.  Aborting parse.");
 					else System.out.println("Scanning error.  Aborting parse.");
+					System.exit(parseFail);
+				}
+				try {
+					reader.close();
+				} catch (IOException e) {
+					System.out.println("Failed to close the input file reader.");
 					System.exit(parseFail);
 				}
 				System.out.println("Parse was successful.  " + args[0] + " is a valid miniJava program.");
