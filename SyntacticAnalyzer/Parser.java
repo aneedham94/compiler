@@ -124,6 +124,7 @@ public class Parser {
 	}
 	
 	private void parseReference() throws SyntaxException, IOException{
+		System.out.println("Parsing Reference");
 		switch(token.type){
 		case THIS:
 			acceptIt();
@@ -249,6 +250,17 @@ public class Parser {
 					acceptIt();
 					accept(TokenType.ID);
 				}
+				if(token.type == TokenType.EQ){
+					acceptIt();
+					parseExpression();
+					accept(TokenType.SEMI);
+				}
+				else if(token.type == TokenType.LPAREN){
+					acceptIt();
+					parseArgumentList();
+					accept(TokenType.RPAREN);
+					accept(TokenType.SEMI);
+				}
 			}
 			else parseException("Expecting token of types EQ, LPAREN, ID or LBRACK but got token of type " + token.type + ".");
 			break;
@@ -268,7 +280,15 @@ public class Parser {
 				accept(TokenType.RPAREN);
 			}
 			break;
-		case NOT: case MINUS:
+		case NOT:
+			acceptIt();
+			parseExpression();
+			break;
+		/*case NEQ:
+			acceptIt();
+			parseExpression();
+			break;*/
+		case MINUS:
 			acceptIt();
 			parseExpression();
 			break;
@@ -326,6 +346,10 @@ public class Parser {
 					parseArgumentList();
 					accept(TokenType.RPAREN);
 				}
+				else if(token.type == TokenType.EQ){
+					acceptIt();
+					parseExpression();
+				}
 			}
 			break;
 		default:
@@ -347,8 +371,9 @@ public class Parser {
 	}
 	
 	private void accept(TokenType type)throws SyntaxException, IOException{
-		System.out.println("Trying to accept token of type " + token.type + " with spelling " + token.spelling);
-		if(token.type == type) token = scanner.scan();
+		if(token.type == type){
+			token = scanner.scan();
+		}
 		else parseException("Expecting token of type " + type + " but got token of type " + token.type + ".");
 	}
 	

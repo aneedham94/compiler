@@ -10,6 +10,7 @@ import miniJava.SyntacticAnalyzer.SyntaxException;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 
+
 public class Compiler {
 	public static final int parseSuccess = 0;
 	public static final int parseFail = 4;

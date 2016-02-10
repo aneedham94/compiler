@@ -38,7 +38,7 @@ public class Scanner {
 		case 'w': case 'x': case 'y': case 'z': case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
 		case 'H': case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
 		case 'S': case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
-			while((current >= 48 && current <= 57) || (current >= 65 && current <= 90) || (current >= 97 && current <= 122)) add();
+			while((current >= 48 && current <= 57) || (current >= 65 && current <= 90) || (current >= 97 && current <= 122) || current=='_') add();
 			if(spelling.equals("class")) return TokenType.CLASS;
 			if(spelling.equals("void")) return TokenType.VOID;
 			if(spelling.equals("public")) return TokenType.PUBLIC;
@@ -105,7 +105,7 @@ public class Scanner {
 			else return TokenType.GT;
 		case '!':
 			add();
-			if(current == '+'){
+			if(current == '='){
 				add();
 				return TokenType.NEQ;
 			}
@@ -135,20 +135,30 @@ public class Scanner {
 			return TokenType.TIMES;
 		case '/':
 			add();
-			if(current == '/'){
+			if(current == '/' && !eot){
 				skip();
-				while(current != '\n') skip();
+				while(current != '\n' && current != '\r'){
+					if(eot) break;
+					skip();
+				}
 				skip();
 				return TokenType.COMMENT;
 			}
-			else if(current == '*'){
+			
+			else if(current == '*' && !eot){
 				skip();
 				boolean comment = true;
 				while(comment){
-					while(current != '*') skip();
+					while(current != '*'){
+						if(eot) throw new IOException("Unterminated comment");
+						skip();
+					}
+					if(eot) throw new IOException("Unterminated comment");
 					skip();
-					if(current == '/') comment = false;
-					skip();
+					if(current == '/'){
+						skip();
+						comment = false;
+					}
 				}
 				return TokenType.COMMENT;
 			}
@@ -164,8 +174,6 @@ public class Scanner {
 	}
 	
 	private void skip() throws IOException{
-		
-		System.out.println("Skipping character " + visible(current));
 		nextChar();
 	}
 	
