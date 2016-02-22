@@ -52,7 +52,6 @@ public class Compiler {
 					System.out.println("Failed to close the input file reader.");
 					System.exit(parseFail);
 				}
-				System.out.println("Parse was successful.  " + args[0] + " is a valid miniJava program.");
 				ASTDisplay visitor = new ASTDisplay();
 				try{
 					visitor.showTree(program);
