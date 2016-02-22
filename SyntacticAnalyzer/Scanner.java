@@ -18,121 +18,125 @@ public class Scanner {
 	public Token scan() throws IOException{
 		spelling = "";
 		skipWhite();
-		TokenType type = findType();
-		while(type == TokenType.COMMENT){
+		TokenKind type = findType();
+		while(type == TokenKind.COMMENT){
 			spelling = "";
 			skipWhite();
 			type = findType();
 		}
-		return new Token(type, spelling);
+		return new Token(type, spelling, null);
 	}
 	
-	private TokenType findType() throws IOException{
-		if(eot) return TokenType.EOT;
+	private TokenKind findType() throws IOException{
+		if(eot) return TokenKind.EOT;
 		switch(current){
 		case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
 			while(Character.isDigit(current)) add();
-			return TokenType.NUM;
+			return TokenKind.NUM;
 		case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h': case 'i': case 'j': case 'k': 
 		case 'l': case 'm': case 'n': case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v':
 		case 'w': case 'x': case 'y': case 'z': case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
 		case 'H': case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
 		case 'S': case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
 			while((current >= 48 && current <= 57) || (current >= 65 && current <= 90) || (current >= 97 && current <= 122) || current=='_') add();
-			if(spelling.equals("class")) return TokenType.CLASS;
-			if(spelling.equals("void")) return TokenType.VOID;
-			if(spelling.equals("public")) return TokenType.PUBLIC;
-			if(spelling.equals("private")) return TokenType.PRIVATE;
-			if(spelling.equals("static")) return TokenType.STATIC;
-			if(spelling.equals("int")) return TokenType.INT;
-			if(spelling.equals("boolean")) return TokenType.BOOLEAN;
-			if(spelling.equals("this")) return TokenType.THIS;
-			if(spelling.equals("return")) return TokenType.RETURN;
-			if(spelling.equals("if")) return TokenType.IF;
-			if(spelling.equals("else")) return TokenType.ELSE;
-			if(spelling.equals("while")) return TokenType.WHILE;
-			if(spelling.equals("true")) return TokenType.TRUE;
-			if(spelling.equals("false")) return TokenType.FALSE;
-			if(spelling.equals("new")) return TokenType.NEW;
-			return TokenType.ID;
+			if(spelling.equals("class")) return TokenKind.CLASS;
+			if(spelling.equals("void")) return TokenKind.VOID;
+			if(spelling.equals("public")) return TokenKind.PUBLIC;
+			if(spelling.equals("private")) return TokenKind.PRIVATE;
+			if(spelling.equals("static")) return TokenKind.STATIC;
+			if(spelling.equals("int")) return TokenKind.INT;
+			if(spelling.equals("boolean")) return TokenKind.BOOLEAN;
+			if(spelling.equals("this")) return TokenKind.THIS;
+			if(spelling.equals("return")) return TokenKind.RETURN;
+			if(spelling.equals("if")) return TokenKind.IF;
+			if(spelling.equals("else")) return TokenKind.ELSE;
+			if(spelling.equals("while")) return TokenKind.WHILE;
+			if(spelling.equals("true")) return TokenKind.TRUE;
+			if(spelling.equals("false")) return TokenKind.FALSE;
+			if(spelling.equals("new")) return TokenKind.NEW;
+			return TokenKind.ID;
 		case '{':
 			add();
-			return TokenType.LCURL;
+			return TokenKind.LCURL;
 		case '}':
 			add();
-			return TokenType.RCURL;
+			return TokenKind.RCURL;
 		case ';':
 			add();
-			return TokenType.SEMI;
+			return TokenKind.SEMI;
 		case '(':
 			add();
-			return TokenType.LPAREN;
+			return TokenKind.LPAREN;
 		case ')':
 			add();
-			return TokenType.RPAREN;
+			return TokenKind.RPAREN;
 		case '[':
 			add();
-			return TokenType.LBRACK;
+			return TokenKind.LBRACK;
 		case ']':
 			add();
-			return TokenType.RBRACK;
+			return TokenKind.RBRACK;
 		case ',':
 			add();
-			return TokenType.COMMA;
+			return TokenKind.COMMA;
 		case '.':
 			add();
-			return TokenType.DOT;
+			return TokenKind.DOT;
 		case '=':
 			add();
 			if(current == '='){
 				add();
-				return TokenType.EQEQ;
+				return TokenKind.EQEQ;
 			}
-			else return TokenType.EQ;
+			else return TokenKind.EQ;
 		case '<':
 			add();
 			if(current == '='){
 				add();
-				return TokenType.LTE;
+				return TokenKind.LTE;
 			}
-			else return TokenType.LT;
+			else return TokenKind.LT;
 		case '>':
 			add();
 			if(current == '='){
 				add();
-				return TokenType.GTE;
+				return TokenKind.GTE;
 			}
-			else return TokenType.GT;
+			else return TokenKind.GT;
 		case '!':
 			add();
 			if(current == '='){
 				add();
-				return TokenType.NEQ;
+				return TokenKind.NEQ;
 			}
-			else return TokenType.NOT;
+			else return TokenKind.NOT;
 		case '&':
 			add();
 			if(current == '&'){
 				add();
-				return TokenType.AND;
+				return TokenKind.AND;
 			}
-			else throw new IOException("" + current);
+			else return TokenKind.ERROR;
 		case '|':
 			add();
 			if(current == '|'){
 				add();
-				return TokenType.OR;
+				return TokenKind.OR;
 			}
-			else throw new IOException("" + current);
+			else return TokenKind.ERROR;
 		case '+':
 			add();
-			return TokenType.PLUS;
+			return TokenKind.PLUS;
 		case '-':
 			add();
-			return TokenType.MINUS;
+			if(current == '-'){
+				add();
+				return TokenKind.ERROR;
+			}
+			return TokenKind.MINUS;
 		case '*':
 			add();
-			return TokenType.TIMES;
+			return TokenKind.TIMES;
 		case '/':
 			add();
 			if(current == '/' && !eot){
@@ -142,7 +146,7 @@ public class Scanner {
 					skip();
 				}
 				skip();
-				return TokenType.COMMENT;
+				return TokenKind.COMMENT;
 			}
 			
 			else if(current == '*' && !eot){
@@ -160,11 +164,11 @@ public class Scanner {
 						comment = false;
 					}
 				}
-				return TokenType.COMMENT;
+				return TokenKind.COMMENT;
 			}
-			return TokenType.DIV;
+			return TokenKind.DIV;
 		default:
-			throw new IOException("" + current);
+			return TokenKind.ERROR;
 		}
 	}
 	

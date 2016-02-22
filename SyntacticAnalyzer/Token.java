@@ -1,10 +1,12 @@
 package miniJava.SyntacticAnalyzer;
 
 public class Token {
-	public TokenType type;
+	public TokenKind kind;
 	public String spelling;
-	public Token(TokenType type, String spelling){
-		this.type = type;
+	public SourcePosition posn;
+	public Token(TokenKind kind, String spelling, SourcePosition posn){
+		this.kind = kind;
 		this.spelling = spelling;
+		this.posn = posn;
 	}
 }

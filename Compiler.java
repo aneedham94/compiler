@@ -3,6 +3,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 
+import miniJava.AbstractSyntaxTrees.AST;
+import miniJava.AbstractSyntaxTrees.ASTDisplay;
 import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
 import miniJava.SyntacticAnalyzer.SyntaxException;
@@ -32,8 +34,9 @@ public class Compiler {
 					System.exit(parseFail);
 				}
 				Parser parser = new Parser(scanner);
+				AST program = null;
 				try{
-					parser.parse();
+					program = parser.parse();
 				} catch(SyntaxException e){
 					System.out.println("Parse failed.  " + args[0] + " is not a valid miniJava program.");
 					System.out.println(e.getMessage());
@@ -50,6 +53,13 @@ public class Compiler {
 					System.exit(parseFail);
 				}
 				System.out.println("Parse was successful.  " + args[0] + " is a valid miniJava program.");
+				ASTDisplay visitor = new ASTDisplay();
+				try{
+					visitor.showTree(program);
+				} catch(NullPointerException e){
+					System.out.println("Null pointer exception while reading AST");
+				}
+
 				System.exit(parseSuccess);
 			}
 			else{
