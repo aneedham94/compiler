@@ -301,7 +301,7 @@ public class Parser {
 					else{
 						acceptIt();
 						String name = token.spelling;
-						VarDecl vd = new VarDecl(t, name, posn);
+						VarDecl vd = new VarDecl(new ArrayType(t, posn), name, posn);
 						accept(TokenKind.ID);
 						accept(TokenKind.EQ);
 						Expression e = parseExpression();
@@ -417,6 +417,7 @@ public class Parser {
 			operators.push(new Operator(token));
 			acceptIt();
 		}
+		int numop = operators.size();
 		Expression e;
 		if(token.kind == TokenKind.LPAREN){
 			acceptIt();
@@ -426,7 +427,7 @@ public class Parser {
 		else{
 			e = parseExprLit();
 		}
-		for(int i = 0; i < operators.size(); i++){
+		for(int i = 0; i < numop; i++){
 			e = new UnaryExpr(operators.pop(), e, posn);
 		}
 		return e;
@@ -440,10 +441,11 @@ public class Parser {
 			Reference ref = parseReference();
 			if(token.kind == TokenKind.LPAREN){
 				acceptIt();
-				parseExpressionList();
+				ExprList expressions = parseExpressionList();
 				accept(TokenKind.RPAREN);
+				returnExpression = new CallExpr(ref, expressions, posn);
 			}
-			returnExpression = new RefExpr(ref, posn);
+			else returnExpression = new RefExpr(ref, posn);
 			break;
 		}
 			
