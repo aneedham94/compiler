@@ -9,7 +9,7 @@ public class Parser {
 	private Scanner scanner;
 	private Token token;
 	//This is just used for readability when passing null as source position
-	private static final SourcePosition posn = null;
+	private SourcePosition posn;
 	
 	public Parser(Scanner scanner){
 		this.scanner = scanner;
@@ -21,6 +21,7 @@ public class Parser {
 	}
 	
 	private Package parseProgram() throws SyntaxException, IOException{
+		posn = token.posn;
 		ClassDeclList classes = new ClassDeclList();
 		while(token.kind != TokenKind.EOT){
 			classes.add(parseClassDeclaration());
@@ -32,6 +33,7 @@ public class Parser {
 	private ClassDecl parseClassDeclaration() throws SyntaxException, IOException{
 		accept(TokenKind.CLASS);
 		String name = token.spelling;
+		posn = token.posn;
 		accept(TokenKind.ID);
 		accept(TokenKind.LCURL);
 		FieldDeclList fields = new FieldDeclList();
@@ -53,24 +55,26 @@ public class Parser {
 			t = new BaseType(TypeKind.VOID, posn);
 			acceptIt();
 			String name = token.spelling;
+			posn = token.posn;
 			accept(TokenKind.ID);
-			return parseMethodDeclaration(isPriv, isStat, t, name);
+			return parseMethodDeclaration(isPriv, isStat, t, name, posn);
 		}
 		else{
 			t = parseType();
 			String name = token.spelling;
+			posn = token.posn;
 			accept(TokenKind.ID);
 			if(token.kind == TokenKind.SEMI){
 				acceptIt();
 				return new FieldDecl(isPriv, isStat, t, name, posn);
 			}
 			else{
-				return parseMethodDeclaration(isPriv, isStat, t, name);
+				return parseMethodDeclaration(isPriv, isStat, t, name, posn);
 			}
 		}
 	}
 	
-	private MethodDecl parseMethodDeclaration(boolean isPriv, boolean isStat, Type t, String name) throws SyntaxException, IOException{
+	private MethodDecl parseMethodDeclaration(boolean isPriv, boolean isStat, Type t, String name, SourcePosition posn) throws SyntaxException, IOException{
 		ParameterDeclList parameters = new ParameterDeclList();
 		accept(TokenKind.LPAREN);
 		if(token.kind != TokenKind.RPAREN){
@@ -118,6 +122,7 @@ public class Parser {
 	}
 	
 	private Type parseType() throws SyntaxException, IOException{
+		posn = token.posn;
 		switch(token.kind){
 		case INT:
 			acceptIt();
@@ -140,7 +145,7 @@ public class Parser {
 			}
 			return new ClassType(id, posn);
 		default:
-			parseException("Expecting token of types INT, BOOLEAN, or ID, but got token of type " + token.kind + " with spelling " + token.spelling);
+			parseException("Expecting token of types INT, BOOLEAN, or ID, but got token of type " + token.kind + " with spelling " + token.spelling + " at position " + token.posn);
 			return new BaseType(TypeKind.UNSUPPORTED, posn);
 		}
 	}
@@ -149,6 +154,7 @@ public class Parser {
 		ParameterDeclList parameters = new ParameterDeclList();
 		Type t = parseType();
 		String name = token.spelling;
+		posn = token.posn;
 		accept(TokenKind.ID);
 		parameters.add(new ParameterDecl(t, name, posn));
 		
@@ -156,6 +162,7 @@ public class Parser {
 			acceptIt();
 			t = parseType();
 			name = token.spelling;
+			posn = token.posn;
 			accept(TokenKind.ID);
 			parameters.add(new ParameterDecl(t, name, posn));
 		}
@@ -175,6 +182,7 @@ public class Parser {
 	}
 	
 	private Reference parseReference() throws SyntaxException, IOException{
+		posn = token.posn;
 		Reference ref;
 		switch(token.kind){
 		case THIS:
@@ -186,12 +194,13 @@ public class Parser {
 			acceptIt();
 			break;
 		default:
-			parseException("Expecting token of types THIS or ID but got token of type " + token.kind + " with spelling " + token.spelling);
+			parseException("Expecting token of types THIS or ID but got token of type " + token.kind + " with spelling " + token.spelling + " at position " + token.posn);
 			ref = null;
 			break;
 		}
 		while(token.kind == TokenKind.DOT){
 			acceptIt();
+			posn = token.posn;
 			ref = new QualifiedRef(ref, new Identifier(token), posn);
 			accept(TokenKind.ID);
 		}
@@ -199,6 +208,7 @@ public class Parser {
 	}
 	
 	private Statement parseStatement() throws SyntaxException, IOException{
+		posn = token.posn;
 		switch(token.kind){
 		case LCURL:
 			{
@@ -212,14 +222,16 @@ public class Parser {
 			}
 		case INT: case BOOLEAN:
 			{
+				SourcePosition startposn = posn;
 				Type t = parseType();
 				String name = token.spelling;
+				posn = token.posn;
 				VarDecl vd = new VarDecl(t, name, posn);
 				accept(TokenKind.ID);
 				accept(TokenKind.EQ);
 				Expression e = parseExpression();
 				accept(TokenKind.SEMI);
-				return new VarDeclStmt(vd, e, posn);
+				return new VarDeclStmt(vd, e, startposn);
 			}
 		case THIS:
 			{
@@ -342,16 +354,17 @@ public class Parser {
 						return new CallStmt(ref, expressions, posn);
 					}
 				}
-				else parseException("Expecting token of types EQ, LPAREN, ID or LBRACK but got token of type " + token.kind + " with spelling " + token.spelling);
+				else parseException("Expecting token of types EQ, LPAREN, ID or LBRACK but got token of type " + token.kind + " with spelling " + token.spelling + " at position " + token.posn);
 				return null;
 			}//End ID block
 		default:
-			parseException("Expecting token of types LCURL, INT, BOOLEAN, THIS, RETURN, IF, WHILE, or ID but got token of type " + token.kind + " with spelling " + token.spelling);
+			parseException("Expecting token of types LCURL, INT, BOOLEAN, THIS, RETURN, IF, WHILE, or ID but got token of type " + token.kind + " with spelling " + token.spelling + " at position " + token.posn);
 			return null;
 		}
 	}
 	
 	private Expression parseExpression() throws IOException, SyntaxException{
+		posn = token.posn;
 		Expression e1 = parseAND();
 		while(token.kind == TokenKind.OR){
 			Operator op = new Operator(token);
@@ -362,6 +375,7 @@ public class Parser {
 	}
 	
 	private Expression parseAND() throws IOException, SyntaxException{
+		posn = token.posn;
 		Expression e1 = parseEquality();
 		while(token.kind == TokenKind.AND){
 			Operator op = new Operator(token);
@@ -372,6 +386,7 @@ public class Parser {
 	}
 	
 	private Expression parseEquality() throws IOException, SyntaxException{
+		posn = token.posn;
 		Expression e1 = parseRelational();
 		while(token.kind == TokenKind.EQEQ || token.kind == TokenKind.NEQ){
 			Operator op = new Operator(token);
@@ -382,6 +397,7 @@ public class Parser {
 	}
 	
 	private Expression parseRelational() throws IOException, SyntaxException{
+		posn = token.posn;
 		Expression e1 = parseTerm();
 		while(token.kind == TokenKind.GT || token.kind == TokenKind.LT || token.kind == TokenKind.GTE || token.kind == TokenKind.LTE){
 			Operator op = new Operator(token);
@@ -392,6 +408,7 @@ public class Parser {
 	}
 	
 	private Expression parseTerm() throws IOException, SyntaxException{
+		posn = token.posn;
 		Expression e1 = parseFactor();
 		while(token.kind == TokenKind.PLUS || token.kind == TokenKind.MINUS){
 			Operator op = new Operator(token);
@@ -402,6 +419,7 @@ public class Parser {
 	}
 	
 	private Expression parseFactor() throws IOException, SyntaxException{
+		posn = token.posn;
 		Expression e1 = parseUnary();
 		while(token.kind == TokenKind.TIMES || token.kind == TokenKind.DIV){
 			Operator op = new Operator(token);
@@ -412,6 +430,7 @@ public class Parser {
 	}
 	
 	private Expression parseUnary() throws IOException, SyntaxException{
+		posn = token.posn;
 		LinkedList<Operator> operators = new LinkedList<Operator>();
 		while(token.kind == TokenKind.MINUS || token.kind == TokenKind.NOT){
 			operators.push(new Operator(token));
@@ -434,6 +453,7 @@ public class Parser {
 	}
 	
 	private Expression parseExprLit() throws IOException, SyntaxException{
+		posn = token.posn;
 		Expression returnExpression = null;
 		switch(token.kind){
 		case THIS:
@@ -479,7 +499,7 @@ public class Parser {
 						accept(TokenKind.RBRACK);
 						returnExpression = new NewArrayExpr(t, e, posn);
 					}
-					else parseException("Expecting token of type LPAREN or RPAREN but got token of type " + token.kind + " with spelling " + token.spelling);
+					else parseException("Expecting token of type LPAREN or RPAREN but got token of type " + token.kind + " with spelling " + token.spelling + " at position " + token.posn);
 				}
 				else if(token.kind == TokenKind.INT){
 					Type t = new BaseType(TypeKind.INT, posn);
@@ -489,7 +509,7 @@ public class Parser {
 					accept(TokenKind.RBRACK);
 					returnExpression = new NewArrayExpr(t, e, posn);
 				}
-				else parseException("Expecting token of type ID or INT but got token of type " + token.kind + " with spelling " + token.spelling);
+				else parseException("Expecting token of type ID or INT but got token of type " + token.kind + " with spelling " + token.spelling + " at position " + token.posn);
 				break;
 			}
 		case ID:
@@ -523,8 +543,15 @@ public class Parser {
 				else returnExpression = new RefExpr(new IdRef(id, posn), posn);
 				break;
 			}
+		case NULL:
+			{
+				Identifier id = new Identifier(token);
+				acceptIt();
+				returnExpression = new RefExpr(new IdRef(id, posn), posn);
+				break;
+			}
 		default:
-			parseException("Expecting token of type THIS, NUM, TRUE, FALSE, NEW, or ID but got token of type " + token.kind + " with spelling " + token.spelling);
+			parseException("Expecting token of type THIS, NUM, TRUE, FALSE, NEW, or ID but got token of type " + token.kind + " with spelling " + token.spelling + " at position " + token.posn);
 			break;
 		}
 		return returnExpression;
@@ -540,7 +567,7 @@ public class Parser {
 		if(token.kind == type){
 			token = scanner.scan();
 		}
-		else parseException("Expecting token of type " + type + " but got token of type " + token.kind + " with spelling " + token.spelling);
+		else parseException("Expecting token of type " + type + " but got token of type " + token.kind + " with spelling " + token.spelling + " at position " + token.posn);
 	}
 	
 	private void parseException(String message) throws SyntaxException{

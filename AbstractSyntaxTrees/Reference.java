@@ -13,4 +13,5 @@ public abstract class Reference extends AST
 		super(posn);
 	}
 
+	public Declaration decl;
 }

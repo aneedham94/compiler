@@ -5,6 +5,7 @@ import java.io.IOException;
 
 import miniJava.AbstractSyntaxTrees.AST;
 import miniJava.AbstractSyntaxTrees.ASTDisplay;
+import miniJava.AbstractSyntaxTrees.ASTIdentification;
 import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
 import miniJava.SyntacticAnalyzer.SyntaxException;
@@ -52,14 +53,21 @@ public class Compiler {
 					System.out.println("Failed to close the input file reader.");
 					System.exit(parseFail);
 				}
-				ASTDisplay visitor = new ASTDisplay();
-				try{
-					visitor.showTree(program);
-				} catch(NullPointerException e){
-					System.out.println("Null pointer exception while reading AST");
-				}
-
-				System.exit(parseSuccess);
+				ErrorReporter reporter = new ErrorReporter();
+				ASTIdentification identifier = new ASTIdentification(reporter);
+				identifier.identify(program);
+				int numContextErrors = 0;
+				numContextErrors = reporter.report();
+				//AST display code
+//				try{
+//				 	ASTDisplay visitor = new ASTDisplay();
+//					visitor.showTree(program);
+//				} catch(NullPointerException e){
+//					System.out.println("Null pointer exception while reading AST");
+//				}
+				//AST display code
+				if(numContextErrors > 0) System.exit(parseFail);
+				else System.exit(parseSuccess);
 			}
 			else{
 				System.out.println("Source file must be of type .java or .mjava.");

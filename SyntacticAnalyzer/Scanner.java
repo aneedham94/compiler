@@ -8,23 +8,33 @@ public class Scanner {
 	private boolean eot;
 	private char current;
 	private String spelling;
+	private int line, col, dcol;
 	public Scanner(BufferedReader reader) throws IOException{
 		this.reader = reader;
 		eot = false;
 		spelling = "";
 		readChar();
+		line = 0;
+		col = 0;
+		dcol = 0;
 	}
 	
 	public Token scan() throws IOException{
+		dcol = 0;
 		spelling = "";
 		skipWhite();
+		col = col + dcol;
 		TokenKind type = findType();
 		while(type == TokenKind.COMMENT){
 			spelling = "";
 			skipWhite();
+			col = col + dcol;
 			type = findType();
 		}
-		return new Token(type, spelling, null);
+		Token t = new Token(type, spelling, new SourcePosition(line+1,col+1));
+		col = col + dcol;
+		return t;
+		
 	}
 	
 	private TokenKind findType() throws IOException{
@@ -54,6 +64,7 @@ public class Scanner {
 			if(spelling.equals("true")) return TokenKind.TRUE;
 			if(spelling.equals("false")) return TokenKind.FALSE;
 			if(spelling.equals("new")) return TokenKind.NEW;
+			if(spelling.equals("null")) return TokenKind.NULL;
 			return TokenKind.ID;
 		case '{':
 			add();
@@ -174,6 +185,7 @@ public class Scanner {
 	
 	private void add() throws IOException{
 		spelling = spelling + current;
+		dcol++;
 		nextChar();
 	}
 	
@@ -183,6 +195,12 @@ public class Scanner {
 	
 	private void skipWhite() throws IOException{
 		while(current == ' ' || current == '\n' || current == '\r' || current == '\t'){
+			if(current == '\n'){
+				line++;
+				col = 0;
+				dcol = 0;
+			}
+			else col++;
 			if(eot) break;
 			nextChar();
 		}

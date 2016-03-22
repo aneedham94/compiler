@@ -9,4 +9,8 @@ public class Token {
 		this.spelling = spelling;
 		this.posn = posn;
 	}
+	
+	public String toString(){
+		return "Spelling[" + spelling + "], Position[" + posn + "]";
+	}
 }
