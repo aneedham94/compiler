@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Set;
 
 public class ScopedTable {
+	private static int test;
 	private Hashtable<String, ArrayList<Declaration>> scope;
 	private Hashtable<String, Declaration> predefClasses;
 	private Hashtable<String, Hashtable<String,Declaration>> predefMembers;

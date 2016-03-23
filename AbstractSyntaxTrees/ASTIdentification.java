@@ -320,6 +320,9 @@ public class ASTIdentification implements Visitor {
 				}
 				reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
 			}
+			else if(((MemberDecl)ref.id.decl).isPrivate){
+				reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((ClassType)ref.ref.decl.type).className.spelling);
+			}
 		}
 		else if(ref.ref instanceof ThisRef){
 			ref.id.decl = ScopeID.getMemberDecl(ScopeID.currentClass.name, ref.id.spelling);
@@ -337,17 +340,20 @@ public class ASTIdentification implements Visitor {
 		}
 		//Static access
 		else if(ref.ref.decl.type == null){
-
 			ref.id.decl = ScopeID.getMemberDecl(ref.ref.decl.name, ref.id.spelling);
-			if(!((MemberDecl)ref.id.decl).isStatic){
-				reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ref.ref.decl.name + "\" at program location " + ref.id.decl.posn);
-			}
-			if(ref.id.decl != null){
-				ref.decl = ref.id.decl;
-			}
-			else{
+			if(ref.id.decl == null){
 				reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + ref.ref.decl.name);
 			}
+			else{
+				if(!((MemberDecl)ref.id.decl).isStatic){
+					reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ref.ref.decl.name + "\" at program location " + ref.id.decl.posn);
+				}
+				else if(((MemberDecl)ref.id.decl).isPrivate){
+					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ref.ref.decl.name);
+				}
+				else ref.decl = ref.id.decl;
+			}
+
 		}
 		else{
 			reporter.log("***Identifier \"" + ((IdRef)ref.ref).id.spelling + "\" at program location " + ((IdRef)ref.ref).id.posn + " is not a class type, trying to reference members of \"" + ((IdRef)ref.ref).id.spelling + "\" is illegal");
