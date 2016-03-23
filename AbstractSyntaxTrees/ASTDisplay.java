@@ -361,4 +361,10 @@ public class ASTDisplay implements Visitor<String,Object> {
         show(arg, quote(bool.spelling) + " " + bool.toString());
         return null;
     }
+
+	@Override
+	public Object visitNullLiteral(NullLiteral nul, String arg) {
+		show(arg, quote(nul.spelling) + " " + nul.toString());
+		return null;
+	}
 }

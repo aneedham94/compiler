@@ -41,6 +41,7 @@ public class ASTIdentification implements Visitor {
 		methods = new MethodDeclList();
 		ClassDecl string = new ClassDecl("String", fields, methods, zero);
 		
+		
 		ScopeID.openScope();
 		ScopeID.predefine(system.name, null, system);
 		ScopeID.predefine(printstream.name, null, printstream);
@@ -404,6 +405,11 @@ public class ASTIdentification implements Visitor {
 
 	@Override
 	public Object visitBooleanLiteral(BooleanLiteral bool, Object arg) {
+		return null;
+	}
+
+	@Override
+	public Object visitNullLiteral(NullLiteral nul, Object arg) {
 		return null;
 	}
 

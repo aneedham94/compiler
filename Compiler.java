@@ -6,6 +6,7 @@ import java.io.IOException;
 import miniJava.AbstractSyntaxTrees.AST;
 import miniJava.AbstractSyntaxTrees.ASTDisplay;
 import miniJava.AbstractSyntaxTrees.ASTIdentification;
+import miniJava.AbstractSyntaxTrees.ASTTypecheck;
 import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
 import miniJava.SyntacticAnalyzer.SyntaxException;
@@ -67,7 +68,15 @@ public class Compiler {
 //				}
 				//AST display code
 				if(numContextErrors > 0) System.exit(parseFail);
-				else System.exit(parseSuccess);
+				else{
+					ErrorReporter typeErrors = new ErrorReporter();
+					ASTTypecheck checker = new ASTTypecheck(typeErrors);
+					checker.check(program);
+					int numTypeErrors =  0;
+					numTypeErrors = typeErrors.report();
+					if(numTypeErrors > 0) System.exit(parseFail);
+					System.exit(parseSuccess);
+				}
 			}
 			else{
 				System.out.println("Source file must be of type .java or .mjava.");

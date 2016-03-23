@@ -252,6 +252,7 @@ public class Parser {
 			}
 		case RETURN:
 			{
+				SourcePosition posn = this.posn;
 				acceptIt();
 				Expression returnExpression = null;
 				if(token.kind != TokenKind.SEMI) returnExpression = parseExpression();
@@ -545,9 +546,9 @@ public class Parser {
 			}
 		case NULL:
 			{
-				Identifier id = new Identifier(token);
+				NullLiteral nul = new NullLiteral(token);
 				acceptIt();
-				returnExpression = new RefExpr(new IdRef(id, posn), posn);
+				returnExpression = new LiteralExpr(nul, posn);
 				break;
 			}
 		default:

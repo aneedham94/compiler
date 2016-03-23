@@ -23,5 +23,6 @@ public abstract class AST {
 
   public abstract <A,R> R visit(Visitor<A,R> v, A o);
 
+  public Type checkedType;
   public SourcePosition posn;
 }
