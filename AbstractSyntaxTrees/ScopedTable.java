@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Set;
 
 public class ScopedTable {
-	private static int test;
 	private Hashtable<String, ArrayList<Declaration>> scope;
 	private Hashtable<String, Declaration> predefClasses;
 	private Hashtable<String, Hashtable<String,Declaration>> predefMembers;
@@ -58,12 +57,23 @@ public class ScopedTable {
 			}
 			return true;
 		}
-		else if(scope.get(key).get(scopeLevel) == null){
-			scope.get(key).add(scopeLevel, value);
-			if(scopeLevel == 1){
-				currentClass = value;
+		else{
+			if(scopeLevel >= 4){
+				for(int i = scopeLevel; i >= 3; i--){
+					if(scope.get(key).get(i) != null) return false;
+				}
+				scope.get(key).add(scopeLevel, value);
+				return true;
 			}
-			return true;
+			else{
+				if(scope.get(key).get(scopeLevel) == null){
+					scope.get(key).add(scopeLevel, value);
+					if(scopeLevel == 1){
+						currentClass = value;
+					}
+					return true;
+				}
+			}
 		}
 		return false;
 	}
@@ -80,7 +90,7 @@ public class ScopedTable {
 			else return false;
 		}
 		else if(scopeLevel == 2){
-			if(getMemberDecl(currentClass.name, key) == null){
+			if(members.get(currentClass.name).get(key) == null){
 				members.get(currentClass.name).put(key,  value);
 				return true;
 			}
@@ -109,6 +119,26 @@ public class ScopedTable {
 		return false;
 	}
 	
+	public Declaration getClass(String className){
+		Declaration rval = null;
+		rval = classes.get(className);
+		if(rval == null){
+			rval = predefClasses.get(className);
+		}
+		return rval;
+	}
+	
+	public Declaration getMember(String className, String member){
+		Declaration rval = null;
+		if(classes.get(className) != null){
+			rval = members.get(className).get(member);
+		}
+		else{
+			rval = predefMembers.get(className).get(member);
+		}
+		return rval;
+	}
+	
 	public Declaration get(String key){
 		Declaration rval = null;
 		//Search current scope
@@ -119,47 +149,35 @@ public class ScopedTable {
 				if(rval != null) return rval;
 			}
 		}
-		
+		return rval;
+	}
+	
+	public Declaration searchAll(String key){
+		Declaration rval = null;
+		//Search current scope
+		if(scope.get(key) == null);
+		else{
+			for(int i = scopeLevel; i >= 0; i--){
+				rval = scope.get(key).get(i);
+				if(rval != null) return rval;
+			}
+		}
 		//Search user-defined classes and their members
 		Set<String> keys = members.keySet();
 		for(String k : keys){
-			rval = getMemberDecl(k, key);
+			rval = members.get(k).get(key);
 			if(rval != null) return rval;
 		}
-		rval = getClassDecl(key);
+		rval = getClass(key);
 		if(rval != null) return rval;
 		
 		//Search System classes and their members
 		Set<String> preKeys = predefMembers.keySet();
 		for(String k : preKeys){
-			rval = getPredefMemberDecl(k, key);
+			rval = predefMembers.get(k).get(key);
 			if(rval != null) return rval;
 		}
-		rval = getPredefClassDecl(key);
-		
-		return rval;
-	}
-	
-	private Declaration getPredefMemberDecl(String classname, String membername){
-		if(predefMembers.get(classname) == null) return null;
-		return predefMembers.get(classname).get(membername);
-	}
-	
-	private Declaration getPredefClassDecl(String classname){
-		return predefClasses.get(classname);
-	}
-	
-	public Declaration getMemberDecl(String classname, String membername){
-		if(members.get(classname) == null && predefMembers.get(classname) == null) return null;
-		Declaration rval = null;
-		if(members.get(classname) != null) rval = members.get(classname).get(membername);
-		if(rval == null && predefMembers.get(classname) != null) rval = predefMembers.get(classname).get(membername);
-		return rval;
-	}
-	
-	public Declaration getClassDecl(String classname){
-		Declaration rval = classes.get(classname);
-		if(rval == null) rval = predefClasses.get(classname);
+		rval = predefClasses.get(key);
 		return rval;
 	}
 	

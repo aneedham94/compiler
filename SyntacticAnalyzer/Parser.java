@@ -541,6 +541,13 @@ public class Parser {
 					}
 					else returnExpression = new RefExpr(ref, posn);
 				}
+				else if(token.kind == TokenKind.LPAREN){
+					Reference ref = new IdRef(id, posn);
+					acceptIt();
+					ExprList expressions = parseExpressionList();
+					accept(TokenKind.RPAREN);
+					returnExpression = new CallExpr(ref, expressions, posn);
+				}
 				else returnExpression = new RefExpr(new IdRef(id, posn), posn);
 				break;
 			}

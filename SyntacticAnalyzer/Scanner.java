@@ -28,7 +28,7 @@ public class Scanner {
 		while(type == TokenKind.COMMENT){
 			spelling = "";
 			skipWhite();
-			col = col + dcol;
+			col = 0;
 			type = findType();
 		}
 		Token t = new Token(type, spelling, new SourcePosition(line+1,col+1));
@@ -156,6 +156,7 @@ public class Scanner {
 					if(eot) break;
 					skip();
 				}
+				line++;
 				skip();
 				return TokenKind.COMMENT;
 			}
@@ -166,9 +167,11 @@ public class Scanner {
 				while(comment){
 					while(current != '*'){
 						if(eot) throw new IOException("Unterminated comment");
+						if(current == '\n') line++;
 						skip();
 					}
 					if(eot) throw new IOException("Unterminated comment");
+					if(current == '\n') line++;
 					skip();
 					if(current == '/'){
 						skip();

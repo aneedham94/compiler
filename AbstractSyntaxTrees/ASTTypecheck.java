@@ -4,7 +4,7 @@ import miniJava.ErrorReporter;
 import miniJava.SyntacticAnalyzer.Token;
 import miniJava.SyntacticAnalyzer.TokenKind;
 
-public class ASTTypecheck implements Visitor {
+public class ASTTypecheck implements Visitor<Object, Object> {
 	
 	private BaseType VOID;
 	private BaseType INT;
@@ -12,6 +12,7 @@ public class ASTTypecheck implements Visitor {
 	private BaseType ERROR;
 	private ClassType NULL;
 	private ErrorReporter reporter;
+	
 	public ASTTypecheck(ErrorReporter reporter){
 		this.reporter = reporter;
 		VOID = new BaseType(TypeKind.VOID, null);
@@ -26,12 +27,14 @@ public class ASTTypecheck implements Visitor {
 	}
 	
 	private boolean equality(Type t1, Type t2){
+		if(t2 == null) return false;
 		if(t1.typeKind == TypeKind.ERROR || t2.typeKind == TypeKind.ERROR) return true;
 		else if(t1.typeKind == TypeKind.UNSUPPORTED || t2.typeKind == TypeKind.UNSUPPORTED) return false;
 		else if(t1.typeKind == TypeKind.CLASS && t2.typeKind == TypeKind.CLASS){
 			if(((ClassType)t1).className.spelling.equals("String") || ((ClassType)t2).className.spelling.equals("String")) return false;
 			if(((ClassType)t1).className.spelling.equals(((ClassType)t2).className.spelling)) return true;
-			if(t2 == NULL) return true;
+			//if(((ClassType)t1).className.spelling.equals)
+			if(t1 == NULL || t2 == NULL) return true;
 		}
 		else if(t1.typeKind == TypeKind.ARRAY && t2.typeKind == TypeKind.ARRAY){
 			if(equality(((ArrayType)t1).eltType, ((ArrayType)t2).eltType)) return true;
@@ -56,6 +59,7 @@ public class ASTTypecheck implements Visitor {
 	
 	@Override
 	public Object visitClassDecl(ClassDecl cd, Object arg) {
+		cd.checkedType = new ClassType(new Identifier(new Token(TokenKind.CLASS, cd.name, cd.posn)), cd.posn);
 		for(FieldDecl fd : cd.fieldDeclList){
 			fd.visit(this, null);
 		}
@@ -171,7 +175,9 @@ public class ASTTypecheck implements Visitor {
 				if(stmt.val.checkedType instanceof ClassType){
 					reporter.log("***Type mismatch at program location " + stmt.posn + ". Cannot assign value of type " + ((ClassType)stmt.val.checkedType).className.spelling + " to variable \"" + stmt.ref.decl.name + "\" of type " + ((ClassType)stmt.ref.checkedType).className.spelling);
 				}
-				else reporter.log("***Type mismatch at program location " + stmt.posn + ". Cannot assign value of type " + stmt.val.checkedType.typeKind + " to variable \"" + stmt.ref.decl.name + "\" of type " + ((ClassType)stmt.ref.checkedType).className.spelling);
+				else{
+					reporter.log("***Type mismatch at program location " + stmt.posn + ". Cannot assign value of type " + stmt.val.checkedType.typeKind + " to variable \"" + stmt.ref.decl.name + "\" of type " + ((ClassType)stmt.ref.checkedType).className.spelling);
+				}
 			}
 			else reporter.log("***Type mismatch at program location " + stmt.posn + ". Cannot assign value of type " + stmt.val.checkedType.typeKind + " to variable \"" + stmt.ref.decl.name + "\" of type " + stmt.ref.checkedType);
 			stmt.checkedType = ERROR;
@@ -326,10 +332,10 @@ public class ASTTypecheck implements Visitor {
 		}
 		else{
 			if(equality(expr.left.checkedType, expr.right.checkedType)){
-				expr.checkedType = expr.left.checkedType;
+				expr.checkedType = BOOLEAN;
 			}
 			else{
-				reporter.log("***Incompatible boolean and integer values in expression at program location " + expr.posn);
+				reporter.log("***Incompatible " + expr.left.checkedType + " and " + expr.right.checkedType + " values in expression at program location " + expr.posn);
 				expr.checkedType = ERROR;
 			}
 		}
@@ -346,9 +352,16 @@ public class ASTTypecheck implements Visitor {
 	@Override
 	public Object visitCallExpr(CallExpr expr, Object arg) {
 		expr.functionRef.visit(this, null);
+		for(int i = 0; i < expr.argList.size(); i++){
+			expr.argList.get(i).visit(this, null);
+			if(!equality(((MethodDecl)expr.functionRef.decl).parameterDeclList.get(i).type, expr.argList.get(i).checkedType)){
+				reporter.log("***Function parameter number " + (i+1) + " of type " + expr.argList.get(i).checkedType.typeKind + " at program location " + expr.argList.get(i).posn + " does not match declared parameter type of " + ((MethodDecl)expr.functionRef.decl).parameterDeclList.get(i).type.typeKind + " for function \"" + expr.functionRef.decl.name + "\".");
+			}
+		}
 		for(Expression e : expr.argList){
 			e.visit(this, null);
 		}
+		expr.checkedType = expr.functionRef.checkedType;
 		return null;
 	}
 
@@ -414,7 +427,7 @@ public class ASTTypecheck implements Visitor {
 
 	@Override
 	public Object visitThisRef(ThisRef ref, Object arg) {
-		ref.checkedType = ref.decl.type;
+		ref.checkedType = ref.decl.checkedType;
 		return null;
 	}
 

@@ -5,11 +5,15 @@ import miniJava.SyntacticAnalyzer.SourcePosition;
 import miniJava.SyntacticAnalyzer.Token;
 import miniJava.SyntacticAnalyzer.TokenKind;
 
-public class ASTIdentification implements Visitor {
+public class ASTIdentification implements Visitor<Object, Object> {
 	private static final int numIDs = 100;
 	private static final SourcePosition zero = new SourcePosition(0,0);
 	public ScopedTable ScopeID;
 	private ErrorReporter reporter;
+	private boolean initializing = false;
+	private Declaration initDecl = null;
+	private boolean staticContext = false;
+	private FieldDecl ARRAY_LEN = new FieldDecl(false, false, new BaseType(TypeKind.INT, null), "length", null);
 	
 	public ASTIdentification(ErrorReporter e){
 		reporter = e;
@@ -86,9 +90,42 @@ public class ASTIdentification implements Visitor {
 			cd.visit(this, null);
 		}
 		ScopeID.closeScope();
+		
+		//Checking for unique main method
+		boolean found = false;
+		for(ClassDecl cd : prog.classDeclList){
+			for(MethodDecl md : cd.methodDeclList){
+				if(md.name.equals("main")){
+					if(!found){
+						if(md.isPrivate) reporter.log("***Main method at program location " + md.posn + " is private, and must be public.");
+						if(!md.isStatic) reporter.log("***Main method at program location " + md.posn + " is not static, and must be static.");
+						if(md.type.typeKind != TypeKind.VOID) reporter.log("***Main method at program location " + md.posn + " has non-void return type, and must have a void return type.");
+						if(md.parameterDeclList.size() != 1) reporter.log("***Main method at program location " + md.posn + " has either too few or too many parameters, it must have exactly 1.");
+						else{
+							if(md.parameterDeclList.get(0).type instanceof ArrayType){
+								if(((ArrayType)md.parameterDeclList.get(0).type).eltType instanceof ClassType){
+									if(((ClassType)((ArrayType)md.parameterDeclList.get(0).type).eltType).className.spelling.equals("String"));
+									else reporter.log("***Main method at program location " + md.posn + " must have String[] as the type of its one parameter.");
+								}
+								else reporter.log("***Main method at program location " + md.posn + " must have String[] as the type of its one parameter.");
+							}
+							else reporter.log("***Main method at program location " + md.posn + " must have String[] as the type of its one parameter.");
+						}
+					}
+					else reporter.log("***Duplicate main method found at program location " + md.posn + ".");
+					found = true;
+				}
+			}
+		}
 		return null;
 	}
 
+	/////////////////////////////////////////////////////////////////////
+	//
+	//DECLARATIONS
+	//
+	/////////////////////////////////////////////////////////////////////
+	
 	@Override
 	public Object visitClassDecl(ClassDecl cd, Object arg) {
 		ScopeID.put(cd.name, cd);
@@ -118,6 +155,7 @@ public class ASTIdentification implements Visitor {
 	
 	@Override
 	public Object visitMethodDecl(MethodDecl md, Object arg) {
+		if(md.isStatic) staticContext = true;
 		if(md.type instanceof ClassType){
 			md.type.visit(this, null);
 			if(((ClassType)md.type).className.decl == null){
@@ -136,6 +174,27 @@ public class ASTIdentification implements Visitor {
 		}
 		ScopeID.closeScope();
 		ScopeID.closeScope();
+		staticContext = false;
+		
+		//Checking for return statements
+		if(md.type.typeKind != TypeKind.VOID){
+			if(md.statementList.size() > 0){
+				if(!(md.statementList.get(md.statementList.size()-1) instanceof ReturnStmt)){
+					reporter.log("***Method " + md.name + " at program location " + md.posn + " must have a return statement of type " + md.type.typeKind);
+				}
+			}
+			else reporter.log("***Method " + md.name + " at program location " + md.posn + " must have a return statement of type " + md.type.typeKind);
+		}
+		else{
+			if(md.statementList.size() > 0){
+				if(!(md.statementList.get(md.statementList.size()-1) instanceof ReturnStmt)){
+					md.statementList.add(new ReturnStmt(null, null));
+				}
+			}
+			else{
+				md.statementList.add(new ReturnStmt(null, null));
+			}
+		}
 		return null;
 	}
 
@@ -143,7 +202,7 @@ public class ASTIdentification implements Visitor {
 	public Object visitParameterDecl(ParameterDecl pd, Object arg) {
 		if(pd.type instanceof ClassType){
 			pd.type.visit(this, null);
-			if(((ClassType)pd.type).className.decl == null){
+			if(((ClassType)pd.type).className.decl == null || !(((ClassType)pd.type).className.decl instanceof ClassDecl)){
 				reporter.log("***Parameter \"" + pd.name + "\" at program location " + pd.posn + " is of type \"" + ((ClassType)pd.type).className.spelling + "\", which cannot be resolved to a type");
 			}
 		}
@@ -165,6 +224,13 @@ public class ASTIdentification implements Visitor {
 		return null;
 	}
 
+	
+	/////////////////////////////////////////////////////////////////////
+	//
+	//TYPES
+	//
+	/////////////////////////////////////////////////////////////////////
+	
 	@Override
 	public Object visitBaseType(BaseType type, Object arg) {
 		return null;
@@ -172,7 +238,7 @@ public class ASTIdentification implements Visitor {
 
 	@Override
 	public Object visitClassType(ClassType type, Object arg) {
-		type.className.decl = ScopeID.get(type.className.spelling);
+		type.className.decl = ScopeID.getClass(type.className.spelling);
 		return null;
 	}
 
@@ -182,14 +248,15 @@ public class ASTIdentification implements Visitor {
 		return null;
 	}
 
+	/////////////////////////////////////////////////////////////////////
+	//
+	//STATEMENTS
+	//
+	/////////////////////////////////////////////////////////////////////
+	
 	@Override
 	public Object visitBlockStmt(BlockStmt stmt, Object arg) {
 		ScopeID.openScope();
-		if(stmt.sl.size() == 1){
-			if(stmt.sl.get(0) instanceof VarDeclStmt){
-				reporter.log("***Declaration of local variable in block statement at program location " + (((VarDeclStmt)stmt.sl.get(0)).varDecl).posn + " is the only statement in the block.  This is illegal.");
-			}
-		}
 		for(Statement s : stmt.sl){
 			s.visit(this, null);
 		}
@@ -200,7 +267,10 @@ public class ASTIdentification implements Visitor {
 	@Override
 	public Object visitVardeclStmt(VarDeclStmt stmt, Object arg) {
 		stmt.varDecl.visit(this, null);
+		initDecl = stmt.varDecl;
+		initializing = true;
 		stmt.initExp.visit(this, null);
+		initializing = false;
 		return null;
 	}
 
@@ -208,6 +278,7 @@ public class ASTIdentification implements Visitor {
 	public Object visitAssignStmt(AssignStmt stmt, Object arg) {
 		stmt.ref.visit(this, null);
 		stmt.val.visit(this, null);
+		if(stmt.ref.decl == ARRAY_LEN) reporter.log("***Assignment to the length field of array at program location " + stmt.ref.posn + " is illegal.");
 		return null;
 	}
 
@@ -224,6 +295,13 @@ public class ASTIdentification implements Visitor {
 		for(Expression e : stmt.argList){
 			e.visit(this, null);
 		}
+		if(!(stmt.methodRef.decl instanceof MethodDecl)){
+			if(stmt.methodRef.decl != null){
+				String name = stmt.methodRef.decl.name;
+				if(name == ScopeID.currentClass.name) name = "this";
+				reporter.log("***Identifier " + name + " at program location " + stmt.methodRef.posn + " is not a method.");
+			}
+		}
 		return null;
 	}
 
@@ -237,8 +315,11 @@ public class ASTIdentification implements Visitor {
 	@Override
 	public Object visitIfStmt(IfStmt stmt, Object arg) {
 		ScopeID.openScope();
-		if(stmt.thenStmt instanceof VarDeclStmt) reporter.log("***Declaration of local variable in branch at program location " + stmt.posn + " is the only statement in the block.  This is illegal.");
+		if(stmt.thenStmt instanceof VarDeclStmt) reporter.log("***Declaration of local variable in branch at program location " + stmt.thenStmt.posn + " is the only statement in the block.  This is illegal.");
+		stmt.cond.visit(this, null);
 		stmt.thenStmt.visit(this, null);
+		if(stmt.elseStmt != null) stmt.elseStmt.visit(this, null);
+		if(stmt.elseStmt instanceof VarDeclStmt) reporter.log("***Declaration of local variable in branch at program location " + stmt.elseStmt.posn + " is the only statement in the block.  This is illegal.");
 		ScopeID.closeScope();
 		return null;
 	}
@@ -247,13 +328,21 @@ public class ASTIdentification implements Visitor {
 	public Object visitWhileStmt(WhileStmt stmt, Object arg) {
 		ScopeID.openScope();
 		if(stmt.body instanceof VarDeclStmt) reporter.log("***Declaration of local variable in loop at program location " + stmt.posn + " is the only statement in the block.  This is illegal.");
+		stmt.cond.visit(this, null);
 		stmt.body.visit(this, null);
 		ScopeID.closeScope();
 		return null;
 	}
 
+	/////////////////////////////////////////////////////////////////////
+	//
+	//EXPRESSIONS
+	//
+	/////////////////////////////////////////////////////////////////////
+	
 	@Override
 	public Object visitUnaryExpr(UnaryExpr expr, Object arg) {
+		expr.operator.visit(this, null);
 		expr.expr.visit(this, null);
 		return null;
 	}
@@ -268,6 +357,21 @@ public class ASTIdentification implements Visitor {
 	@Override
 	public Object visitRefExpr(RefExpr expr, Object arg) {
 		expr.ref.visit(this, null);
+		if(initializing){
+			if(expr.ref.decl == initDecl){
+				reporter.log("***Local variable " + expr.ref.decl.name + " at program location " + expr.ref.posn + " cannot be used in its own declaration and initialization.");
+			}
+		}
+		if(expr.ref instanceof IdRef){
+			if(((IdRef)expr.ref).id.decl instanceof ClassDecl){
+				if(((ClassDecl)((IdRef)expr.ref).id.decl).name.equals(((IdRef)expr.ref).id.spelling)){
+					reporter.log("***Identifier " + ((IdRef)expr.ref).id.spelling + " at program location " + ((IdRef)expr.ref).id.posn + " has not been declared.");
+				}
+			}
+			else if(((IdRef)expr.ref).id.decl instanceof MethodDecl){
+				reporter.log("***Identifier " + ((IdRef)expr.ref).id.spelling + " at program location " + ((IdRef)expr.ref).id.posn + " has not been declared.");
+			}
+		}
 		return null;
 	}
 
@@ -299,66 +403,143 @@ public class ASTIdentification implements Visitor {
 		return null;
 	}
 
+	/////////////////////////////////////////////////////////////////////
+	//
+	//REFERENCES
+	//
+	/////////////////////////////////////////////////////////////////////
+	
 	@Override
 	public Object visitQualifiedRef(QualifiedRef ref, Object arg) {
 		ref.ref.visit(this, null);
-		if(ref.ref.decl == null){
-			ref.ref.decl = null;
-			ref.decl = null;
-			ref.id.decl = null;
-			return null;
-		}
-		if(ref.ref.decl.type instanceof ClassType){
-			ref.id.decl = ScopeID.getMemberDecl(((ClassType)ref.ref.decl.type).className.spelling, ref.id.spelling);
-			ref.decl = ref.id.decl;
-			if(ref.id.decl == null){
-				String parent = "";
-				if(ref.ref instanceof ThisRef){
-					parent = ScopeID.currentClass.name;
-				}
-				else if(ref.ref.decl.type instanceof ClassType){
-					parent = ((ClassType)ref.ref.decl.type).className.spelling;
-				}
-				reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
-			}
-			else if(((MemberDecl)ref.id.decl).isPrivate){
-				reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((ClassType)ref.ref.decl.type).className.spelling);
-			}
-		}
-		else if(ref.ref instanceof ThisRef){
-			ref.id.decl = ScopeID.getMemberDecl(ScopeID.currentClass.name, ref.id.spelling);
-			ref.decl = ref.id.decl;
-			if(ref.id.decl == null){
-				String parent = "";
-				if(ref.ref instanceof ThisRef){
-					parent = ScopeID.currentClass.name;
-				}
-				else if(ref.ref.decl.type instanceof ClassType){
-					parent = ((ClassType)ref.ref.decl.type).className.spelling;
-				}
-				reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
-			}
-		}
-		//Static access
-		else if(ref.ref.decl.type == null){
-			ref.id.decl = ScopeID.getMemberDecl(ref.ref.decl.name, ref.id.spelling);
-			if(ref.id.decl == null){
-				reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + ref.ref.decl.name);
-			}
-			else{
-				if(!((MemberDecl)ref.id.decl).isStatic){
-					reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ref.ref.decl.name + "\" at program location " + ref.id.decl.posn);
+
+		if(ref.ref.decl == null) return null;
+		if(staticContext){
+			if(ref.ref.decl.type instanceof ClassType && !(ref.ref.decl instanceof MethodDecl)){
+				ref.id.decl = ScopeID.getMember(((ClassType)ref.ref.decl.type).className.spelling, ref.id.spelling);
+				ref.decl = ref.id.decl;
+				if(ref.decl == null){
+					String parent = "";
+					if(ref.ref instanceof ThisRef){
+						parent = ScopeID.currentClass.name;
+					}
+					else if(ref.ref.decl.type instanceof ClassType){
+						parent = ((ClassType)ref.ref.decl.type).className.spelling;
+					}
+					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
 				}
 				else if(((MemberDecl)ref.id.decl).isPrivate){
-					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ref.ref.decl.name);
+					if(!((ClassType)ref.ref.decl.type).className.spelling.equals(ScopeID.currentClass.name)){
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((ClassType)ref.ref.decl.type).className.spelling);
+					}
 				}
-				else ref.decl = ref.id.decl;
 			}
+			else if(ref.ref.decl instanceof MethodDecl){
+				reporter.log("***Cannot qualify method reference to " + ref.ref.decl.name + " at program location " + ref.ref.posn + ".");
+			}
+			else if(ref.ref instanceof ThisRef){
+				reporter.log("***Cannot make use of \"this\" reference (" + ref.ref.posn + ") in a static context.");
+			}
+			else if(ref.ref.decl.type instanceof ArrayType){
+				if(ref.id.spelling.equals("length")){
+					ref.id.decl = ARRAY_LEN;
+					ref.decl = ARRAY_LEN;
+				}
+				else{
+					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member of the Array class.");
+				}
+			}
+			//CLASS access
+			else if(ref.ref.decl.type == null){
+				ref.id.decl = ScopeID.getMember(ref.ref.decl.name, ref.id.spelling);
+				if(ref.id.decl == null){
+					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + ref.ref.decl.name);
+				}
+				else{
+					if(!((MemberDecl)ref.id.decl).isStatic){
+						reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ref.ref.decl.name + "\" at program location " + ref.id.decl.posn);
+					}
+					if(((MemberDecl)ref.id.decl).isPrivate){
+						if(!(((ClassDecl)ref.ref.decl).name.equals(ScopeID.currentClass.name))){
+							reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ref.ref.decl.name);
+						}
+					}
+					else ref.decl = ref.id.decl;
+				}
 
+			}
+			else{
+				reporter.log("***Identifier \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is not a class type, trying to reference members of \"" + ref.id.spelling + "\" is illegal");
+				ref.ref.decl = null;
+			}
 		}
 		else{
-			reporter.log("***Identifier \"" + ((IdRef)ref.ref).id.spelling + "\" at program location " + ((IdRef)ref.ref).id.posn + " is not a class type, trying to reference members of \"" + ((IdRef)ref.ref).id.spelling + "\" is illegal");
-			ref.ref.decl = null;
+			if(ref.ref.decl.type instanceof ClassType && !(ref.ref.decl instanceof MethodDecl)){
+				ref.id.decl = ScopeID.getMember(((ClassType)ref.ref.decl.type).className.spelling, ref.id.spelling);
+				ref.decl = ref.id.decl;
+				if(ref.id.decl == null){
+					String parent = "";
+					if(ref.ref instanceof ThisRef){
+						parent = ScopeID.currentClass.name;
+					}
+					else if(ref.ref.decl.type instanceof ClassType){
+						parent = ((ClassType)ref.ref.decl.type).className.spelling;
+					}
+					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
+				}
+				else if(((MemberDecl)ref.id.decl).isPrivate){
+					if(!((ClassType)ref.ref.decl.type).className.spelling.equals(ScopeID.currentClass.name)){
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((ClassType)ref.ref.decl.type).className.spelling);
+					}				}
+			}
+			else if(ref.ref.decl instanceof MethodDecl){
+				reporter.log("***Cannot qualify method reference to " + ref.ref.decl.name + " at program location " + ref.ref.posn + ".");
+			}
+			else if(ref.ref instanceof ThisRef){
+				ref.id.decl = ScopeID.getMember(ScopeID.currentClass.name, ref.id.spelling);
+				ref.decl = ref.id.decl;
+				if(ref.id.decl == null){
+					String parent = "";
+					if(ref.ref instanceof ThisRef){
+						parent = ScopeID.currentClass.name;
+					}
+					else if(ref.ref.decl.type instanceof ClassType){
+						parent = ((ClassType)ref.ref.decl.type).className.spelling;
+					}
+					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
+				}
+			}
+			else if(ref.ref.decl.type instanceof ArrayType){
+				if(ref.id.spelling.equals("length")){
+					ref.id.decl = ARRAY_LEN;
+					ref.decl = ARRAY_LEN;
+				}
+				else{
+					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member of the Array class.");
+				}
+			}
+			//CLASS access
+			else if(ref.ref.decl.type == null){
+				ref.id.decl = ScopeID.getMember(ref.ref.decl.name, ref.id.spelling);
+				if(ref.id.decl == null){
+					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + ref.ref.decl.name);
+				}
+				else{
+					if(!((MemberDecl)ref.id.decl).isStatic){
+						reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ref.ref.decl.name + "\" at program location " + ref.id.decl.posn);
+					}
+					else if(((MemberDecl)ref.id.decl).isPrivate){
+						if(!(((ClassDecl)ref.ref.decl).name.equals(ScopeID.currentClass.name))){
+							reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ref.ref.decl.name);
+						}					}
+					else ref.decl = ref.id.decl;
+				}
+
+			}
+			else{
+				reporter.log("***Identifier \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is not a class type, trying to reference members of \"" + ref.id.spelling + "\" is illegal");
+				ref.ref.decl = null;
+			}
 		}
 		return null;
 	}
@@ -374,19 +555,37 @@ public class ASTIdentification implements Visitor {
 	@Override
 	public Object visitIdRef(IdRef ref, Object arg) {
 		ref.id.visit(this, null);
+		if(ref.id.decl instanceof MemberDecl){
+			if(staticContext){
+				if(!((MemberDecl)ref.id.decl).isStatic){
+					reporter.log("***Cannot access non-static member " + ref.id.spelling + " in a static context at program location " + ref.posn + ".");
+				}
+			}
+		}
 		ref.decl = ref.id.decl;
 		return null;
 	}
 
 	@Override
 	public Object visitThisRef(ThisRef ref, Object arg) {
-		ref.decl = ScopeID.currentClass;
+		if(staticContext){
+			reporter.log("***Cannot use a \"this\" reference in a static context.");
+		}
+		else ref.decl = ScopeID.currentClass;
 		return null;
 	}
 
+	/////////////////////////////////////////////////////////////////////
+	//
+	//TERMINALS
+	//
+	/////////////////////////////////////////////////////////////////////
+	
 	@Override
 	public Object visitIdentifier(Identifier id, Object arg) {
 		id.decl = ScopeID.get(id.spelling);
+		if(id.decl == null) id.decl = ScopeID.getMember(ScopeID.currentClass.name, id.spelling);
+		if(id.decl == null) id.decl = ScopeID.getClass(id.spelling);
 		if(id.decl == null){
 			reporter.log("***Identifier \"" + id.spelling + "\" at program location " + id.posn + " has not been declared");
 		}
