@@ -132,8 +132,13 @@ public class ScopedTable {
 		Declaration rval = null;
 		if(classes.get(className) != null){
 			rval = members.get(className).get(member);
+//			if(rval == null){
+//				if(predefClasses.get(className) != null){
+//					rval = predefMembers.get(className).get(member);
+//				}
+//			}
 		}
-		else{
+		else if(predefClasses.get(className) != null){
 			rval = predefMembers.get(className).get(member);
 		}
 		return rval;

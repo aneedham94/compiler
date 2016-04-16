@@ -27,7 +27,7 @@ public class ASTTypecheck implements Visitor<Object, Object> {
 	}
 	
 	private boolean equality(Type t1, Type t2){
-		if(t2 == null) return false;
+		//if(t2 == null) return false;
 		if(t1.typeKind == TypeKind.ERROR || t2.typeKind == TypeKind.ERROR) return true;
 		else if(t1.typeKind == TypeKind.UNSUPPORTED || t2.typeKind == TypeKind.UNSUPPORTED) return false;
 		else if(t1.typeKind == TypeKind.CLASS && t2.typeKind == TypeKind.CLASS){
@@ -145,6 +145,7 @@ public class ASTTypecheck implements Visitor<Object, Object> {
 		for(Statement s : stmt.sl){
 			s.visit(this, null);
 		}
+		stmt.checkedType = VOID;
 		return null;
 	}
 
@@ -208,28 +209,54 @@ public class ASTTypecheck implements Visitor<Object, Object> {
 	public Object visitCallStmt(CallStmt stmt, Object arg) {
 		stmt.methodRef.visit(this, null);
 		int size = stmt.argList.size();
-		int initsize = ((MethodDecl)stmt.methodRef.decl).parameterDeclList.size();
-		int i;
-		for(i = 0; i < size; i++){
-			try{
-				ParameterDecl pd = ((MethodDecl)stmt.methodRef.decl).parameterDeclList.get(i);
-				Expression e = stmt.argList.get(i);
-				pd.visit(this, null);
-				e.visit(this, null);
-				if(!equality(pd.checkedType, e.checkedType)){
-					reporter.log("***Parameter passed to method \"" + stmt.methodRef.decl.name + "\" at program location " + e.posn + " does not match declared parameter type");
+		if(stmt.methodRef instanceof QualifiedRef){
+			int initsize = ((MethodDecl)((QualifiedRef)stmt.methodRef).id.decl).parameterDeclList.size();
+			int i;
+			for(i = 0; i < size; i++){
+				try{
+					ParameterDecl pd = ((MethodDecl)((QualifiedRef)stmt.methodRef).id.decl).parameterDeclList.get(i);
+					Expression e = stmt.argList.get(i);
+					pd.visit(this, null);
+					e.visit(this, null);
+					if(!equality(pd.checkedType, e.checkedType)){
+						reporter.log("***Parameter passed to method \"" + ((QualifiedRef)stmt.methodRef).id.decl.name + "\" at program location " + e.posn + " does not match declared parameter type");
+						stmt.checkedType = ERROR;
+					}
+				} catch(IndexOutOfBoundsException e){
+					reporter.log("***Too many arguments passed to method \"" +((QualifiedRef)stmt.methodRef).id.decl.name + "\" at program location " + stmt.posn);
 					stmt.checkedType = ERROR;
 				}
-			} catch(IndexOutOfBoundsException e){
-				reporter.log("***Too many arguments passed to method \"" + stmt.methodRef.decl.name + "\" at program location " + stmt.posn);
+			}
+			if(i < initsize){
+				reporter.log("***Too few arguments passed to method \"" + ((QualifiedRef)stmt.methodRef).id.decl.name + "\" at program location " + stmt.posn);
 				stmt.checkedType = ERROR;
 			}
+			stmt.checkedType = ((QualifiedRef)stmt.methodRef).id.checkedType;
 		}
-		if(i < initsize){
-			reporter.log("***Too few arguments passed to method \"" + stmt.methodRef.decl.name + "\" at program location " + stmt.posn);
-			stmt.checkedType = ERROR;
+		else{
+			int initsize = ((MethodDecl)stmt.methodRef.decl).parameterDeclList.size();
+			int i;
+			for(i = 0; i < size; i++){
+				try{
+					ParameterDecl pd = ((MethodDecl)stmt.methodRef.decl).parameterDeclList.get(i);
+					Expression e = stmt.argList.get(i);
+					pd.visit(this, null);
+					e.visit(this, null);
+					if(!equality(pd.checkedType, e.checkedType)){
+						reporter.log("***Parameter passed to method \"" + stmt.methodRef.decl.name + "\" at program location " + e.posn + " does not match declared parameter type");
+						stmt.checkedType = ERROR;
+					}
+				} catch(IndexOutOfBoundsException e){
+					reporter.log("***Too many arguments passed to method \"" + stmt.methodRef.decl.name + "\" at program location " + stmt.posn);
+					stmt.checkedType = ERROR;
+				}
+			}
+			if(i < initsize){
+				reporter.log("***Too few arguments passed to method \"" + stmt.methodRef.decl.name + "\" at program location " + stmt.posn);
+				stmt.checkedType = ERROR;
+			}
+			stmt.checkedType = stmt.methodRef.checkedType;
 		}
-		stmt.checkedType = stmt.methodRef.checkedType;
 		return null;
 	}
 
@@ -354,8 +381,15 @@ public class ASTTypecheck implements Visitor<Object, Object> {
 		expr.functionRef.visit(this, null);
 		for(int i = 0; i < expr.argList.size(); i++){
 			expr.argList.get(i).visit(this, null);
-			if(!equality(((MethodDecl)expr.functionRef.decl).parameterDeclList.get(i).type, expr.argList.get(i).checkedType)){
-				reporter.log("***Function parameter number " + (i+1) + " of type " + expr.argList.get(i).checkedType.typeKind + " at program location " + expr.argList.get(i).posn + " does not match declared parameter type of " + ((MethodDecl)expr.functionRef.decl).parameterDeclList.get(i).type.typeKind + " for function \"" + expr.functionRef.decl.name + "\".");
+			if(expr.functionRef instanceof QualifiedRef){
+				if(!equality(((MethodDecl)((QualifiedRef)expr.functionRef).id.decl).parameterDeclList.get(i).type, expr.argList.get(i).checkedType)){
+					reporter.log("***Function parameter number " + (i+1) + " of type " + expr.argList.get(i).checkedType.typeKind + " at program location " + expr.argList.get(i).posn + " does not match declared parameter type of " + ((MethodDecl)expr.functionRef.decl).parameterDeclList.get(i).type.typeKind + " for function \"" + expr.functionRef.decl.name + "\".");
+				}
+			}
+			else{
+				if(!equality(((MethodDecl)expr.functionRef.decl).parameterDeclList.get(i).type, expr.argList.get(i).checkedType)){
+					reporter.log("***Function parameter number " + (i+1) + " of type " + expr.argList.get(i).checkedType.typeKind + " at program location " + expr.argList.get(i).posn + " does not match declared parameter type of " + ((MethodDecl)expr.functionRef.decl).parameterDeclList.get(i).type.typeKind + " for function \"" + expr.functionRef.decl.name + "\".");
+				}
 			}
 		}
 		for(Expression e : expr.argList){

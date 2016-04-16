@@ -104,7 +104,7 @@ public class ASTIdentification implements Visitor<Object, Object> {
 						else{
 							if(md.parameterDeclList.get(0).type instanceof ArrayType){
 								if(((ArrayType)md.parameterDeclList.get(0).type).eltType instanceof ClassType){
-									if(((ClassType)((ArrayType)md.parameterDeclList.get(0).type).eltType).className.spelling.equals("String"));
+									if(((ClassType)((ArrayType)md.parameterDeclList.get(0).type).eltType).className.spelling.equals("String")) md.isMain = true;
 									else reporter.log("***Main method at program location " + md.posn + " must have String[] as the type of its one parameter.");
 								}
 								else reporter.log("***Main method at program location " + md.posn + " must have String[] as the type of its one parameter.");
@@ -412,133 +412,270 @@ public class ASTIdentification implements Visitor<Object, Object> {
 	@Override
 	public Object visitQualifiedRef(QualifiedRef ref, Object arg) {
 		ref.ref.visit(this, null);
-
-		if(ref.ref.decl == null) return null;
-		if(staticContext){
-			if(ref.ref.decl.type instanceof ClassType && !(ref.ref.decl instanceof MethodDecl)){
-				ref.id.decl = ScopeID.getMember(((ClassType)ref.ref.decl.type).className.spelling, ref.id.spelling);
-				ref.decl = ref.id.decl;
-				if(ref.decl == null){
-					String parent = "";
-					if(ref.ref instanceof ThisRef){
-						parent = ScopeID.currentClass.name;
+		if(ref.ref instanceof QualifiedRef){
+			if(staticContext){
+				if(((QualifiedRef)ref.ref).id.decl == null) return null;
+				if(((QualifiedRef)ref.ref).id.decl.type instanceof ClassType && !(((QualifiedRef)ref.ref).id.decl instanceof MethodDecl)){
+					ref.id.decl = ScopeID.getMember(((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling, ref.id.spelling);
+					//ref.decl = ref.id.decl;
+					if(ref.id.decl == null){
+						String parent = "";
+						if(ref.ref instanceof ThisRef){
+							parent = ScopeID.currentClass.name;
+						}
+						else if(((QualifiedRef)ref.ref).id.decl.type instanceof ClassType){
+							parent = ((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling;
+						}
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
 					}
-					else if(ref.ref.decl.type instanceof ClassType){
-						parent = ((ClassType)ref.ref.decl.type).className.spelling;
-					}
-					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
-				}
-				else if(((MemberDecl)ref.id.decl).isPrivate){
-					if(!((ClassType)ref.ref.decl.type).className.spelling.equals(ScopeID.currentClass.name)){
-						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((ClassType)ref.ref.decl.type).className.spelling);
-					}
-				}
-			}
-			else if(ref.ref.decl instanceof MethodDecl){
-				reporter.log("***Cannot qualify method reference to " + ref.ref.decl.name + " at program location " + ref.ref.posn + ".");
-			}
-			else if(ref.ref instanceof ThisRef){
-				reporter.log("***Cannot make use of \"this\" reference (" + ref.ref.posn + ") in a static context.");
-			}
-			else if(ref.ref.decl.type instanceof ArrayType){
-				if(ref.id.spelling.equals("length")){
-					ref.id.decl = ARRAY_LEN;
-					ref.decl = ARRAY_LEN;
-				}
-				else{
-					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member of the Array class.");
-				}
-			}
-			//CLASS access
-			else if(ref.ref.decl.type == null){
-				ref.id.decl = ScopeID.getMember(ref.ref.decl.name, ref.id.spelling);
-				if(ref.id.decl == null){
-					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + ref.ref.decl.name);
-				}
-				else{
-					if(!((MemberDecl)ref.id.decl).isStatic){
-						reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ref.ref.decl.name + "\" at program location " + ref.id.decl.posn);
-					}
-					if(((MemberDecl)ref.id.decl).isPrivate){
-						if(!(((ClassDecl)ref.ref.decl).name.equals(ScopeID.currentClass.name))){
-							reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ref.ref.decl.name);
+					else if(((MemberDecl)ref.id.decl).isPrivate){
+						if(!((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling.equals(ScopeID.currentClass.name)){
+							reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling);
 						}
 					}
-					else ref.decl = ref.id.decl;
 				}
+				else if(((QualifiedRef)ref.ref).id.decl instanceof MethodDecl){
+					reporter.log("***Cannot qualify method reference to " + ((QualifiedRef)ref.ref).id.decl.name + " at program location " + ((QualifiedRef)ref.ref).id.posn + ".");
+				}
+				else if(ref.ref instanceof ThisRef){
+					reporter.log("***Cannot make use of \"this\" reference (" + ((QualifiedRef)ref.ref).id.posn + ") in a static context.");
+				}
+				else if(((QualifiedRef)ref.ref).id.decl.type instanceof ArrayType){
+					if(ref.id.spelling.equals("length")){
+						ref.id.decl = ARRAY_LEN;
+						//ref.decl = ARRAY_LEN;
+					}
+					else{
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member of the Array class.");
+					}
+				}
+				//CLASS access
+				else if(((QualifiedRef)ref.ref).id.decl.type == null){
+					ref.id.decl = ScopeID.getMember(((QualifiedRef)ref.ref).id.decl.name, ref.id.spelling);
+					if(ref.id.decl == null){
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + ((QualifiedRef)ref.ref).id.decl.name);
+					}
+					else{
+						if(!((MemberDecl)ref.id.decl).isStatic){
+							reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ((QualifiedRef)ref.ref).id.decl.name + "\" at program location " + ref.id.decl.posn);
+						}
+						if(((MemberDecl)ref.id.decl).isPrivate){
+							if(!(((ClassDecl)((QualifiedRef)ref.ref).id.decl).name.equals(ScopeID.currentClass.name))){
+								reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((QualifiedRef)ref.ref).id.decl.name);
+							}
+						}
+						//else ref.decl = ref.id.decl;
+					}
 
+				}
+				else{
+					reporter.log("***Identifier \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is not a class type, trying to reference members of \"" + ref.id.spelling + "\" is illegal");
+					ref.ref.decl = null;
+				}
 			}
 			else{
-				reporter.log("***Identifier \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is not a class type, trying to reference members of \"" + ref.id.spelling + "\" is illegal");
-				ref.ref.decl = null;
+				if(((QualifiedRef)ref.ref).id.decl == null) return null;
+				if(((QualifiedRef)ref.ref).id.decl.type instanceof ClassType && !(((QualifiedRef)ref.ref).id.decl instanceof MethodDecl)){
+					ref.id.decl = ScopeID.getMember(((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling, ref.id.spelling);
+					//ref.decl = ref.id.decl;
+					if(ref.id.decl == null){
+						String parent = "";
+						if(ref.ref instanceof ThisRef){
+							parent = ScopeID.currentClass.name;
+						}
+						else if(((QualifiedRef)ref.ref).id.decl.type instanceof ClassType){
+							parent = ((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling;
+						}
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
+					}
+					else if(((MemberDecl)ref.id.decl).isPrivate){
+						if(!((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling.equals(ScopeID.currentClass.name)){
+							reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling);
+						}				}
+				}
+				else if(((QualifiedRef)ref.ref).id.decl instanceof MethodDecl){
+					reporter.log("***Cannot qualify method reference to " + ((QualifiedRef)ref.ref).id.decl.name + " at program location " + ((QualifiedRef)ref.ref).id.posn + ".");
+				}
+				else if(ref.ref instanceof ThisRef){
+					ref.id.decl = ScopeID.getMember(ScopeID.currentClass.name, ref.id.spelling);
+					//ref.decl = ref.id.decl;
+					if(ref.id.decl == null){
+						String parent = "";
+						if(ref.ref instanceof ThisRef){
+							parent = ScopeID.currentClass.name;
+						}
+						else if(((QualifiedRef)ref.ref).id.decl.type instanceof ClassType){
+							parent = ((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling;
+						}
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
+					}
+				}
+				else if(((QualifiedRef)ref.ref).id.decl.type instanceof ArrayType){
+					if(ref.id.spelling.equals("length")){
+						ref.id.decl = ARRAY_LEN;
+						//ref.decl = ARRAY_LEN;
+					}
+					else{
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member of the Array class.");
+					}
+				}
+				//CLASS access
+				else if(((QualifiedRef)ref.ref).id.decl.type == null){
+					ref.id.decl = ScopeID.getMember(((QualifiedRef)ref.ref).id.decl.name, ref.id.spelling);
+					if(ref.id.decl == null){
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + ((QualifiedRef)ref.ref).id.decl.name);
+					}
+					else{
+						if(!((MemberDecl)ref.id.decl).isStatic){
+							reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ((QualifiedRef)ref.ref).id.decl.name + "\" at program location " + ref.id.decl.posn);
+						}
+						else if(((MemberDecl)ref.id.decl).isPrivate){
+							if(!(((ClassDecl)((QualifiedRef)ref.ref).id.decl).name.equals(ScopeID.currentClass.name))){
+								reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((QualifiedRef)ref.ref).id.decl.name);
+							}					}
+						//else ref.decl = ref.id.decl;
+					}
+
+				}
+				else{
+					reporter.log("***Identifier \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is not a class type, trying to reference members of \"" + ref.id.spelling + "\" is illegal");
+					((QualifiedRef)ref.ref).id.decl = null;
+				}
 			}
 		}
 		else{
-			if(ref.ref.decl.type instanceof ClassType && !(ref.ref.decl instanceof MethodDecl)){
-				ref.id.decl = ScopeID.getMember(((ClassType)ref.ref.decl.type).className.spelling, ref.id.spelling);
-				ref.decl = ref.id.decl;
-				if(ref.id.decl == null){
-					String parent = "";
-					if(ref.ref instanceof ThisRef){
-						parent = ScopeID.currentClass.name;
-					}
-					else if(ref.ref.decl.type instanceof ClassType){
-						parent = ((ClassType)ref.ref.decl.type).className.spelling;
-					}
-					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
-				}
-				else if(((MemberDecl)ref.id.decl).isPrivate){
-					if(!((ClassType)ref.ref.decl.type).className.spelling.equals(ScopeID.currentClass.name)){
-						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((ClassType)ref.ref.decl.type).className.spelling);
-					}				}
+			if(ref.ref.decl == null){
+				return null;
 			}
-			else if(ref.ref.decl instanceof MethodDecl){
-				reporter.log("***Cannot qualify method reference to " + ref.ref.decl.name + " at program location " + ref.ref.posn + ".");
-			}
-			else if(ref.ref instanceof ThisRef){
-				ref.id.decl = ScopeID.getMember(ScopeID.currentClass.name, ref.id.spelling);
-				ref.decl = ref.id.decl;
-				if(ref.id.decl == null){
-					String parent = "";
-					if(ref.ref instanceof ThisRef){
-						parent = ScopeID.currentClass.name;
-					}
-					else if(ref.ref.decl.type instanceof ClassType){
-						parent = ((ClassType)ref.ref.decl.type).className.spelling;
-					}
-					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
-				}
-			}
-			else if(ref.ref.decl.type instanceof ArrayType){
-				if(ref.id.spelling.equals("length")){
-					ref.id.decl = ARRAY_LEN;
-					ref.decl = ARRAY_LEN;
-				}
-				else{
-					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member of the Array class.");
-				}
-			}
-			//CLASS access
-			else if(ref.ref.decl.type == null){
-				ref.id.decl = ScopeID.getMember(ref.ref.decl.name, ref.id.spelling);
-				if(ref.id.decl == null){
-					reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + ref.ref.decl.name);
-				}
-				else{
-					if(!((MemberDecl)ref.id.decl).isStatic){
-						reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ref.ref.decl.name + "\" at program location " + ref.id.decl.posn);
+			if(staticContext){
+				if(ref.ref.decl.type instanceof ClassType && !(ref.ref.decl instanceof MethodDecl)){
+					ref.id.decl = ScopeID.getMember(((ClassType)ref.ref.decl.type).className.spelling, ref.id.spelling);
+					//ref.decl = ref.id.decl;
+					if(ref.id.decl == null){
+						String parent = "";
+						if(ref.ref instanceof ThisRef){
+							parent = ScopeID.currentClass.name;
+						}
+						else if(ref.ref.decl.type instanceof ClassType){
+							parent = ((ClassType)ref.ref.decl.type).className.spelling;
+						}
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
 					}
 					else if(((MemberDecl)ref.id.decl).isPrivate){
-						if(!(((ClassDecl)ref.ref.decl).name.equals(ScopeID.currentClass.name))){
-							reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ref.ref.decl.name);
-						}					}
-					else ref.decl = ref.id.decl;
+						if(!((ClassType)ref.ref.decl.type).className.spelling.equals(ScopeID.currentClass.name)){
+							reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((ClassType)ref.ref.decl.type).className.spelling);
+						}
+					}
 				}
+				else if(ref.ref.decl instanceof MethodDecl){
+					reporter.log("***Cannot qualify method reference to " + ref.ref.decl.name + " at program location " + ref.ref.posn + ".");
+				}
+				else if(ref.ref instanceof ThisRef){
+					reporter.log("***Cannot make use of \"this\" reference (" + ref.ref.posn + ") in a static context.");
+				}
+				else if(ref.ref.decl.type instanceof ArrayType){
+					if(ref.id.spelling.equals("length")){
+						ref.id.decl = ARRAY_LEN;
+						//ref.decl = ARRAY_LEN;
+					}
+					else{
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member of the Array class.");
+					}
+				}
+				//CLASS access
+				else if(ref.ref.decl.type == null){
+					ref.id.decl = ScopeID.getMember(ref.ref.decl.name, ref.id.spelling);
+					if(ref.id.decl == null){
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + ref.ref.decl.name);
+					}
+					else{
+						if(!((MemberDecl)ref.id.decl).isStatic){
+							reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ref.ref.decl.name + "\" at program location " + ref.id.decl.posn);
+						}
+						if(((MemberDecl)ref.id.decl).isPrivate){
+							if(!(((ClassDecl)ref.ref.decl).name.equals(ScopeID.currentClass.name))){
+								reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ref.ref.decl.name);
+							}
+						}
+						//else ref.decl = ref.id.decl;
+					}
 
+				}
+				else{
+					reporter.log("***Identifier \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is not a class type, trying to reference members of \"" + ref.id.spelling + "\" is illegal");
+					ref.ref.decl = null;
+				}
 			}
 			else{
-				reporter.log("***Identifier \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is not a class type, trying to reference members of \"" + ref.id.spelling + "\" is illegal");
-				ref.ref.decl = null;
+				if(ref.ref.decl == null){
+					return null;
+				}
+				if(ref.ref.decl.type instanceof ClassType && !(ref.ref.decl instanceof MethodDecl)){
+					ref.id.decl = ScopeID.getMember(((ClassType)ref.ref.decl.type).className.spelling, ref.id.spelling);
+					//ref.decl = ref.id.decl;
+					if(ref.id.decl == null){
+						String parent = "";
+						if(ref.ref instanceof ThisRef){
+							parent = ScopeID.currentClass.name;
+						}
+						else if(ref.ref.decl.type instanceof ClassType){
+							parent = ((ClassType)ref.ref.decl.type).className.spelling;
+						}
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
+					}
+					else if(((MemberDecl)ref.id.decl).isPrivate){
+						if(!((ClassType)ref.ref.decl.type).className.spelling.equals(ScopeID.currentClass.name)){
+							reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ((ClassType)ref.ref.decl.type).className.spelling);
+						}				}
+				}
+				else if(ref.ref.decl instanceof MethodDecl){
+					reporter.log("***Cannot qualify method reference to " + ref.ref.decl.name + " at program location " + ref.ref.posn + ".");
+				}
+				else if(ref.ref instanceof ThisRef){
+					ref.id.decl = ScopeID.getMember(ScopeID.currentClass.name, ref.id.spelling);
+					//ref.decl = ref.id.decl;
+					if(ref.id.decl == null){
+						String parent = "";
+						if(ref.ref instanceof ThisRef){
+							parent = ScopeID.currentClass.name;
+						}
+						else if(ref.ref.decl.type instanceof ClassType){
+							parent = ((ClassType)ref.ref.decl.type).className.spelling;
+						}
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + parent);
+					}
+				}
+				else if(ref.ref.decl.type instanceof ArrayType){
+					if(ref.id.spelling.equals("length")){
+						ref.id.decl = ARRAY_LEN;
+						//ref.decl = ARRAY_LEN;
+					}
+					else{
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member of the Array class.");
+					}
+				}
+				//CLASS access
+				else if(ref.ref.decl.type == null){
+					ref.id.decl = ScopeID.getMember(ref.ref.decl.name, ref.id.spelling);
+					if(ref.id.decl == null){
+						reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " could not be resolved to a member in the class " + ref.ref.decl.name);
+					}
+					else{
+						if(!((MemberDecl)ref.id.decl).isStatic){
+							reporter.log("***Cannot reference non-static member \"" + ref.id.decl.name + "\" from the static type \"" + ref.ref.decl.name + "\" at program location " + ref.id.decl.posn);
+						}
+						else if(((MemberDecl)ref.id.decl).isPrivate){
+							if(!(((ClassDecl)ref.ref.decl).name.equals(ScopeID.currentClass.name))){
+								reporter.log("***Member \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is a private field and cannot be accesed outside of the class " + ref.ref.decl.name);
+							}					}
+						//else ref.decl = ref.id.decl;
+					}
+
+				}
+				else{
+					reporter.log("***Identifier \"" + ref.id.spelling + "\" at program location " + ref.id.posn + " is not a class type, trying to reference members of \"" + ref.id.spelling + "\" is illegal");
+					ref.ref.decl = null;
+				}
 			}
 		}
 		return null;

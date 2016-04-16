@@ -17,4 +17,6 @@ public abstract class Declaration extends AST {
 	
 	public String name;
 	public Type type;
+	public int disp = -1;
+	public int size = 1;
 }

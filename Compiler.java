@@ -7,6 +7,7 @@ import miniJava.AbstractSyntaxTrees.AST;
 import miniJava.AbstractSyntaxTrees.ASTDisplay;
 import miniJava.AbstractSyntaxTrees.ASTIdentification;
 import miniJava.AbstractSyntaxTrees.ASTTypecheck;
+import miniJava.CodeGenerator.ASTGenerator;
 import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
 import miniJava.SyntacticAnalyzer.SyntaxException;
@@ -19,8 +20,15 @@ public class Compiler {
 	public static final int parseSuccess = 0;
 	public static final int parseFail = 4;
 	public static void main(String[] args){
+		String name = null;
 		if(args.length > 0){
 			if(args[0].substring(args[0].length()-5, args[0].length()).equals(".java") || args[0].substring(args[0].length()-6, args[0].length()).equals(".mjava")){
+				if(args[0].substring(args[0].length()-5, args[0].length()).equals(".java")){
+					name = args[0].substring(0, args[0].length()-5);
+				}
+				else{
+					name = args[0].substring(0, args[0].length()-6);
+				}
 				BufferedReader reader = null;
 				try{
 					reader = new BufferedReader(new FileReader(new File(args[0])));
@@ -75,6 +83,11 @@ public class Compiler {
 					int numTypeErrors =  0;
 					numTypeErrors = typeErrors.report();
 					if(numTypeErrors > 0) System.exit(parseFail);
+//					else{
+//						ASTGenerator generator = new ASTGenerator(name);
+//						generator.genCode(program);
+//						System.exit(parseSuccess);
+//					}
 					System.exit(parseSuccess);
 				}
 			}
