@@ -83,12 +83,12 @@ public class Compiler {
 					int numTypeErrors =  0;
 					numTypeErrors = typeErrors.report();
 					if(numTypeErrors > 0) System.exit(parseFail);
-//					else{
-//						ASTGenerator generator = new ASTGenerator(name);
-//						generator.genCode(program);
-//						System.exit(parseSuccess);
-//					}
-					System.exit(parseSuccess);
+					else{
+						ASTGenerator generator = new ASTGenerator(name);
+						generator.genCode(program);
+						System.exit(parseSuccess);
+					}
+//					System.exit(parseSuccess);
 				}
 			}
 			else{

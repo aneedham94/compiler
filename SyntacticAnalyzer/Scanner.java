@@ -8,7 +8,7 @@ public class Scanner {
 	private boolean eot;
 	private char current;
 	private String spelling;
-	private int line, col, dcol;
+	private int line, col, posline, poscol;
 	public Scanner(BufferedReader reader) throws IOException{
 		this.reader = reader;
 		eot = false;
@@ -16,29 +16,26 @@ public class Scanner {
 		readChar();
 		line = 0;
 		col = 0;
-		dcol = 0;
 	}
 	
 	public Token scan() throws IOException{
-		dcol = 0;
 		spelling = "";
 		skipWhite();
-		col = col + dcol;
 		TokenKind type = findType();
 		while(type == TokenKind.COMMENT){
 			spelling = "";
 			skipWhite();
-			col = 0;
 			type = findType();
 		}
-		Token t = new Token(type, spelling, new SourcePosition(line+1,col+1));
-		col = col + dcol;
+		Token t = new Token(type, spelling, new SourcePosition(posline+1,poscol+1));
 		return t;
 		
 	}
 	
 	private TokenKind findType() throws IOException{
 		if(eot) return TokenKind.EOT;
+		posline = line;
+		poscol = col;
 		switch(current){
 		case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
 			while(Character.isDigit(current)) add();
@@ -156,7 +153,6 @@ public class Scanner {
 					if(eot) break;
 					skip();
 				}
-				line++;
 				skip();
 				return TokenKind.COMMENT;
 			}
@@ -167,11 +163,9 @@ public class Scanner {
 				while(comment){
 					while(current != '*'){
 						if(eot) throw new IOException("Unterminated comment");
-						if(current == '\n') line++;
 						skip();
 					}
 					if(eot) throw new IOException("Unterminated comment");
-					if(current == '\n') line++;
 					skip();
 					if(current == '/'){
 						skip();
@@ -188,7 +182,6 @@ public class Scanner {
 	
 	private void add() throws IOException{
 		spelling = spelling + current;
-		dcol++;
 		nextChar();
 	}
 	
@@ -198,12 +191,6 @@ public class Scanner {
 	
 	private void skipWhite() throws IOException{
 		while(current == ' ' || current == '\n' || current == '\r' || current == '\t'){
-			if(current == '\n'){
-				line++;
-				col = 0;
-				dcol = 0;
-			}
-			else col++;
 			if(eot) break;
 			nextChar();
 		}
@@ -219,6 +206,11 @@ public class Scanner {
 		else{
 			eot = true;
 		}
+		if(next == '\n'){
+			line++;
+			col = 0;
+		}
+		else col++;
 	}
 	
 	/**

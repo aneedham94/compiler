@@ -7,7 +7,7 @@ import miniJava.SyntacticAnalyzer.TokenKind;
 
 public class ASTIdentification implements Visitor<Object, Object> {
 	private static final int numIDs = 100;
-	private static final SourcePosition zero = new SourcePosition(0,0);
+	private static final SourcePosition nullPosn = null;
 	public ScopedTable ScopeID;
 	private ErrorReporter reporter;
 	private boolean initializing = false;
@@ -25,25 +25,25 @@ public class ASTIdentification implements Visitor<Object, Object> {
 		//Making System class
 		FieldDeclList fields = new FieldDeclList();
 		MethodDeclList methods = new MethodDeclList();
-		FieldDecl out = new FieldDecl(false, true, new ClassType(new Identifier(new Token(TokenKind.CLASS, "_PrintStream", zero)), zero), "out", zero);
+		FieldDecl out = new FieldDecl(false, true, new ClassType(new Identifier(new Token(TokenKind.CLASS, "_PrintStream", nullPosn)), nullPosn), "out", nullPosn);
 		fields.add(out);
-		ClassDecl system = new ClassDecl("System", fields, methods, zero);
+		ClassDecl system = new ClassDecl("System", fields, methods, nullPosn);
 		
 		
 		//Making _Printstream class
 		fields = new FieldDeclList();
 		methods = new MethodDeclList();
 		ParameterDeclList parameters = new ParameterDeclList();
-		parameters.add(new ParameterDecl(new BaseType(TypeKind.INT, zero), "a", zero));
+		parameters.add(new ParameterDecl(new BaseType(TypeKind.INT, nullPosn), "a", nullPosn));
 		StatementList statements = new StatementList();
-		MethodDecl println = new MethodDecl(new FieldDecl(false, false, new BaseType(TypeKind.VOID, zero), "println", zero), parameters, statements, zero);
+		MethodDecl println = new MethodDecl(new FieldDecl(false, false, new BaseType(TypeKind.VOID, nullPosn), "println", nullPosn), parameters, statements, nullPosn);
 		methods.add(println);
-		ClassDecl printstream = new ClassDecl("_PrintStream", fields, methods, zero);
+		ClassDecl printstream = new ClassDecl("_PrintStream", fields, methods, nullPosn);
 		
 		//Making String class
 		fields = new FieldDeclList();
 		methods = new MethodDeclList();
-		ClassDecl string = new ClassDecl("String", fields, methods, zero);
+		ClassDecl string = new ClassDecl("String", fields, methods, nullPosn);
 		
 		
 		ScopeID.openScope();
@@ -116,6 +116,9 @@ public class ASTIdentification implements Visitor<Object, Object> {
 					found = true;
 				}
 			}
+		}
+		if(!found){
+			reporter.log("***No main method could be found.  Aborting code generation.");
 		}
 		return null;
 	}
@@ -278,7 +281,13 @@ public class ASTIdentification implements Visitor<Object, Object> {
 	public Object visitAssignStmt(AssignStmt stmt, Object arg) {
 		stmt.ref.visit(this, null);
 		stmt.val.visit(this, null);
-		if(stmt.ref.decl == ARRAY_LEN) reporter.log("***Assignment to the length field of array at program location " + stmt.ref.posn + " is illegal.");
+		if(stmt.ref instanceof QualifiedRef){
+			if(((QualifiedRef)stmt.ref).id.spelling.equals("length")){
+				if(((QualifiedRef)stmt.ref).ref.decl.type instanceof ArrayType){
+					reporter.log("***Assignment to the length field of array at program location " + stmt.ref.posn + " is illegal.");
+				}
+			}
+		}
 		return null;
 	}
 
@@ -292,16 +301,31 @@ public class ASTIdentification implements Visitor<Object, Object> {
 	@Override
 	public Object visitCallStmt(CallStmt stmt, Object arg) {
 		stmt.methodRef.visit(this, null);
-		for(Expression e : stmt.argList){
-			e.visit(this, null);
-		}
-		if(!(stmt.methodRef.decl instanceof MethodDecl)){
-			if(stmt.methodRef.decl != null){
-				String name = stmt.methodRef.decl.name;
-				if(name == ScopeID.currentClass.name) name = "this";
-				reporter.log("***Identifier " + name + " at program location " + stmt.methodRef.posn + " is not a method.");
+		if(stmt.methodRef instanceof QualifiedRef){
+			for(Expression e : stmt.argList){
+				e.visit(this, null);
+			}
+			if(!(((QualifiedRef)stmt.methodRef).id.decl instanceof MethodDecl)){
+				if(((QualifiedRef)stmt.methodRef).id.decl != null){
+					String name = ((QualifiedRef)stmt.methodRef).id.decl.name;
+					if(name == ScopeID.currentClass.name) name = "this";
+					reporter.log("***Identifier " + name + " at program location " + stmt.methodRef.posn + " is not a method.");
+				}
 			}
 		}
+		else{
+			for(Expression e : stmt.argList){
+				e.visit(this, null);
+			}
+			if(!(stmt.methodRef.decl instanceof MethodDecl)){
+				if(stmt.methodRef.decl != null){
+					String name = stmt.methodRef.decl.name;
+					if(name == ScopeID.currentClass.name) name = "this";
+					reporter.log("***Identifier " + name + " at program location " + stmt.methodRef.posn + " is not a method.");
+				}
+			}
+		}
+		
 		return null;
 	}
 
@@ -417,7 +441,7 @@ public class ASTIdentification implements Visitor<Object, Object> {
 				if(((QualifiedRef)ref.ref).id.decl == null) return null;
 				if(((QualifiedRef)ref.ref).id.decl.type instanceof ClassType && !(((QualifiedRef)ref.ref).id.decl instanceof MethodDecl)){
 					ref.id.decl = ScopeID.getMember(((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling, ref.id.spelling);
-					//ref.decl = ref.id.decl;
+					ref.decl = ref.ref.decl;
 					if(ref.id.decl == null){
 						String parent = "";
 						if(ref.ref instanceof ThisRef){
@@ -477,7 +501,7 @@ public class ASTIdentification implements Visitor<Object, Object> {
 				if(((QualifiedRef)ref.ref).id.decl == null) return null;
 				if(((QualifiedRef)ref.ref).id.decl.type instanceof ClassType && !(((QualifiedRef)ref.ref).id.decl instanceof MethodDecl)){
 					ref.id.decl = ScopeID.getMember(((ClassType)((QualifiedRef)ref.ref).id.decl.type).className.spelling, ref.id.spelling);
-					//ref.decl = ref.id.decl;
+					ref.decl = ref.ref.decl;
 					if(ref.id.decl == null){
 						String parent = "";
 						if(ref.ref instanceof ThisRef){
@@ -550,7 +574,7 @@ public class ASTIdentification implements Visitor<Object, Object> {
 			if(staticContext){
 				if(ref.ref.decl.type instanceof ClassType && !(ref.ref.decl instanceof MethodDecl)){
 					ref.id.decl = ScopeID.getMember(((ClassType)ref.ref.decl.type).className.spelling, ref.id.spelling);
-					//ref.decl = ref.id.decl;
+					ref.decl = ref.ref.decl;
 					if(ref.id.decl == null){
 						String parent = "";
 						if(ref.ref instanceof ThisRef){
@@ -612,7 +636,7 @@ public class ASTIdentification implements Visitor<Object, Object> {
 				}
 				if(ref.ref.decl.type instanceof ClassType && !(ref.ref.decl instanceof MethodDecl)){
 					ref.id.decl = ScopeID.getMember(((ClassType)ref.ref.decl.type).className.spelling, ref.id.spelling);
-					//ref.decl = ref.id.decl;
+					ref.decl = ref.ref.decl;
 					if(ref.id.decl == null){
 						String parent = "";
 						if(ref.ref instanceof ThisRef){
